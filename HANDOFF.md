@@ -11,10 +11,15 @@
 
 ## Milestone progress
 
-- [~] **M0** — Repo + forbidden-token scanner (in progress).
-- [ ] M1 plugin skeleton · M2 swarm dispatch MCP · M3 goal runtime · M4 csw-plan ·
-  M5 executor + continuation hook · M6 steering · M7 review orchestrator ·
-  M8 supporting hooks · M9 install UX · M10 release prep.
+- [x] **M0** — Repo + forbidden-token scanner. Committed `8d09a43`. 13 tests green;
+  3 surfaces clean; reviewer UNCONDITIONAL APPROVAL.
+- [x] **M1** — Native plugin skeleton. 18 tests green; live `copilot plugin list`
+  shows `copilot-swarm (v0.1.0)`; installed tree token-free (via clean export).
+  Finding: direct local install copies whole dir → use clean export for QA; M9
+  distribution targets marketplace/owner-repo (see notes §5).
+- [~] **M2** — Swarm dispatch MCP + agent roster + conductor doctrine (in progress).
+- [ ] M3 goal runtime · M4 csw-plan · M5 executor + continuation hook · M6 steering ·
+  M7 review orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
 
 ## Hard rules
 
