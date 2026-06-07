@@ -21,9 +21,17 @@
   reviewer UNCONDITIONAL APPROVAL. Live: model called `csw-dispatch-dispatch`, ran 2
   parallel `copilot -p` workers (QQAAQQ/ZZBBZZ); agents auto-namespaced `copilot-swarm:*`;
   `${PLUGIN_ROOT}` expands. Recursion depth guard (`CSW_DISPATCH_DEPTH`, default max 1).
-- [~] **M3** — Durable evidence-gated goal runtime (lean Node ESM) (in progress).
-- [ ] M4 csw-plan · M5 executor + continuation hook · M6 steering · M7 review
-  orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
+- [x] **M3** — Durable evidence-gated goal runtime (lean Node ESM). 72 tests green;
+  reviewer UNCONDITIONAL APPROVAL. Criteria block `C0NN | channel: | test: | scenario:`,
+  atomic `.csw/` store + JSONL ledger, completion oracle (pass+evidence+0 blockers),
+  steering guard (refuses skip/bypass/dismiss/auto-complete), CLI `bin/csw-runtime.mjs`.
+- [~] **M4** — Planning skill `csw-plan` (in progress).
+- [ ] M5 executor + continuation hook · M6 steering hook · M7 review orchestrator ·
+  M8 supporting hooks · M9 install UX · M10 release prep.
+
+> NOTE: running `bin/csw-runtime.mjs` from the repo root writes to the repo's own
+> git-ignored `.csw/` — drive QA/reviews in a temp `cwd` (or set `CSW_HOME`) to
+> avoid polluting the milestone ledger.
 
 ## Key live-CLI findings (see `# REFERENCE/_CSW_NOTES.md §5`)
 - Plugin MCP servers: `${PLUGIN_ROOT}` expands in `mcpServers` args; tools surface as
