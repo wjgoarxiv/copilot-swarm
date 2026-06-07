@@ -16,3 +16,6 @@ npm-debug.log*
 
 # Internal working doc — not part of the published repo
 HANDOFF.md
+
+# Internal planning docs — not part of the published repo
+plans/
