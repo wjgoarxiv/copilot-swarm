@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parse, palette, banner, doctor, statusReport, main } from "../bin/csw.mjs";
+import { parse, palette, banner, doctor, statusReport, main, cleanPackedDir } from "../bin/csw.mjs";
 import { doctrine } from "../hooks/session-doctrine.mjs";
+import { mkdtempSync, existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 test("parse: defaults and options", () => {
   assert.deepEqual(parse([]), { cmd: "status", theme: "violet", color: true });
@@ -51,6 +54,35 @@ test("statusReport: renders checks and skills/agents", () => {
 test("main: help and doctor return 0", () => {
   assert.equal(main(["help"]), 0);
   assert.equal(main(["doctor"]), 0);
+});
+
+test("cleanPackedDir: packs PKG_ROOT (allowlist) and returns the extracted package dir", () => {
+  const calls = [];
+  const tmp = mkdtempSync(join(tmpdir(), "csw-pack-test-"));
+  const exec = (cmd, args) => {
+    calls.push([cmd, ...args]);
+    if (cmd === "npm" && args[0] === "pack") return "copilot-swarm-0.1.0.tgz\n";
+    return "";
+  };
+  try {
+    const { dir, cleanup } = cleanPackedDir("/fake/root", exec, () => tmp);
+    assert.equal(dir, join(tmp, "package"));
+    // packed the given root, then extracted the tgz
+    assert.ok(calls.some((c) => c[0] === "npm" && c[1] === "pack" && c.includes("/fake/root")));
+    assert.ok(calls.some((c) => c[0] === "tar" && c.includes("-xzf")));
+    assert.ok(existsSync(tmp));
+    cleanup();
+    assert.ok(!existsSync(tmp), "cleanup removes the temp dir");
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test("cleanPackedDir: cleans up the temp dir if packing throws", () => {
+  const tmp = mkdtempSync(join(tmpdir(), "csw-pack-err-"));
+  const exec = () => { throw new Error("npm missing"); };
+  assert.throws(() => cleanPackedDir("/fake/root", exec, () => tmp), /npm missing/);
+  assert.ok(!existsSync(tmp), "temp dir removed on failure");
 });
 
 test("doctrine: injects the runtime command so the model can call it", () => {

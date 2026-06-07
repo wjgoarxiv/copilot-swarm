@@ -9,7 +9,8 @@
 // Options: --theme <violet|ocean|mono>, --no-color
 
 import { execFileSync } from "node:child_process";
-import { realpathSync, readFileSync } from "node:fs";
+import { realpathSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -72,6 +73,25 @@ export function statusReport(d, color = true, themeName = "violet") {
   return out.join("\n");
 }
 
+/**
+ * Pack PKG_ROOT (applying the package.json "files" allowlist) into a temp dir and
+ * extract it, returning the clean package dir + a cleanup thunk. This guarantees a
+ * clean install even from a dev checkout or an `npm install -g .` symlink (where
+ * PKG_ROOT would otherwise contain # REFERENCE/, .csw/, tests, etc.).
+ */
+export function cleanPackedDir(pkgRoot = PKG_ROOT, exec = execFileSync, makeTmp = () => mkdtempSync(join(tmpdir(), "csw-pkg-"))) {
+  const tmp = makeTmp();
+  const cleanup = () => { try { rmSync(tmp, { recursive: true, force: true }); } catch {} };
+  try {
+    const name = String(exec("npm", ["pack", pkgRoot, "--silent"], { cwd: tmp, encoding: "utf8" })).trim().split("\n").pop();
+    exec("tar", ["-xzf", join(tmp, name), "-C", tmp], { encoding: "utf8" });
+    return { dir: join(tmp, "package"), cleanup };
+  } catch (err) {
+    cleanup();
+    throw err;
+  }
+}
+
 function defaultRun(cmd) {
   try {
     return { ok: true, out: execFileSync(cmd[0], cmd.slice(1), { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
@@ -120,14 +140,23 @@ export function main(argv) {
     const fail = color ? NO : "[--]";
     const d = doctor();
     if (!d.copilot) { console.error(`${fail} GitHub Copilot CLI not found. Install it first.`); return 1; }
-    console.log(`Installing copilot-swarm from ${PKG_ROOT} …`);
+    console.log("Packing a clean copy (allowlisted files only) …");
+    let packed;
     try {
-      execFileSync("copilot", ["plugin", "install", PKG_ROOT], { stdio: "inherit" });
+      packed = cleanPackedDir();
+    } catch {
+      console.error(`${fail} Could not pack the package (is npm available?).`);
+      return 1;
+    }
+    try {
+      execFileSync("copilot", ["plugin", "install", packed.dir], { stdio: "inherit" });
       console.log(`${mark} Installed. Start a session: copilot`);
       return 0;
     } catch {
-      console.error(`${fail} Install failed. Try: copilot plugin install ${PKG_ROOT}`);
+      console.error(`${fail} Install failed. Try: copilot plugin install ${packed.dir}`);
       return 1;
+    } finally {
+      packed.cleanup();
     }
   }
   console.error(`Unknown command: ${a.cmd}\n\n${USAGE}`);
