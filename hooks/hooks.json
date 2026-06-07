@@ -15,6 +15,13 @@
         "timeoutSec": 10
       }
     ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "node \"${PLUGIN_ROOT}/hooks/comment-checker.mjs\"",
+        "timeoutSec": 10
+      }
+    ],
     "agentStop": [
       {
         "type": "command",

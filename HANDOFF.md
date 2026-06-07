@@ -34,8 +34,9 @@
   `hooks/lib/read-stdin.mjs`. 95 tests green; reviewer UNCONDITIONAL APPROVAL; live:
   model refused a weakening instruction citing the injected doctrine.
 - [x] **M7** — Multi-lane review orchestrator skill `csw-review` (F1-F4 all-or-nothing). Live activation PASS.
-- [~] **M8** — Supporting hooks (rules/comment-checker/lsp/git-guide) (in progress).
-- [ ] M9 install UX · M10 release prep.
+- [x] **M8** — Supporting components: comment-checker (postToolUse) PORTED; LSP kept-native, rules/git-guide/telemetry skip (docs/supporting-components.md). 103 tests; reviewer UNCONDITIONAL APPROVAL; live additionalContext honored.
+- [~] **M9** — Install UX (in progress).
+- [ ] M10 release prep.
 
 > KEY MECHANISM (live-verified): plugin `AGENTS.md` is NOT auto-loaded; inject
 > always-on doctrine via a `sessionStart` hook's `additionalContext` (honored).
