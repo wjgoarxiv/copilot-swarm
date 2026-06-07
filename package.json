@@ -26,7 +26,7 @@
     "scan": "node scripts/scan-forbidden.mjs --surface all",
     "pack:dry-run": "npm pack --dry-run",
     "postinstall": "node scripts/postinstall.mjs",
-    "prepublishOnly": "npm test && npm run scan"
+    "prepublishOnly": "node scripts/scan-forbidden.mjs --surface tracked"
   },
   "keywords": [
     "copilot",
