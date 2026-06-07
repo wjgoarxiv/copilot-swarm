@@ -13,10 +13,14 @@ import { readStdin } from "./lib/read-stdin.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DOCTRINE_PATH = join(here, "..", "AGENTS.md");
+// Absolute command for the goal-runtime CLI. The model cannot see ${PLUGIN_ROOT}
+// and the bin is not on PATH after `copilot plugin install`, so inject the exact
+// invocation here (fixes the "model called bare csw-runtime" gap).
+const RUNTIME_CMD = `node "${join(here, "..", "bin", "csw-runtime.mjs")}"`;
 const MAX = 9000; // stay within additionalContext size limits
 
 /** Build the doctrine context string. Exported for tests. */
-export function doctrine(read = readFileSync) {
+export function doctrine(read = readFileSync, runtimeCmd = RUNTIME_CMD) {
   let body;
   try {
     body = String(read(DOCTRINE_PATH, "utf8")).trim();
@@ -25,7 +29,11 @@ export function doctrine(read = readFileSync) {
   }
   if (!body) return null;
   const clipped = body.length > MAX ? body.slice(0, MAX) + "\n…(truncated)" : body;
-  return `Copilot-swarm (CSW) is active. Follow this doctrine:\n\n${clipped}`;
+  const runtimeNote =
+    `\n\n## Goal runtime CLI\nDrive the evidence-gated goal runtime with this exact ` +
+    `command (it is not on PATH):\n\n    ${runtimeCmd} <subcommand>\n\n` +
+    `Subcommands: init · show · status · evidence · blocker · steer · complete · clear.`;
+  return `Copilot-swarm (CSW) is active. Follow this doctrine:\n\n${clipped}${runtimeNote}`;
 }
 
 async function main() {

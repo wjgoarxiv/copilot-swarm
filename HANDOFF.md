@@ -35,8 +35,8 @@
   model refused a weakening instruction citing the injected doctrine.
 - [x] **M7** — Multi-lane review orchestrator skill `csw-review` (F1-F4 all-or-nothing). Live activation PASS.
 - [x] **M8** — Supporting components: comment-checker (postToolUse) PORTED; LSP kept-native, rules/git-guide/telemetry skip (docs/supporting-components.md). 103 tests; reviewer UNCONDITIONAL APPROVAL; live additionalContext honored.
-- [~] **M9** — Install UX (in progress).
-- [ ] M10 release prep.
+- [x] **M9** — Install UX (csw CLI: banner/themes/status/install/doctor) + absolute runtime-command injection (fixes M5 PATH finding). 112 tests; reviewer UNCONDITIONAL APPROVAL.
+- [~] **M10** — Release prep 0.1.0 (in progress).
 
 > KEY MECHANISM (live-verified): plugin `AGENTS.md` is NOT auto-loaded; inject
 > always-on doctrine via a `sessionStart` hook's `additionalContext` (honored).

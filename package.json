@@ -11,7 +11,6 @@
     "scripts",
     "runtime/src",
     "mcp",
-    "lib",
     "skills",
     "agents",
     "hooks",
