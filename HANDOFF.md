@@ -17,9 +17,20 @@
   shows `copilot-swarm (v0.1.0)`; installed tree token-free (via clean export).
   Finding: direct local install copies whole dir → use clean export for QA; M9
   distribution targets marketplace/owner-repo (see notes §5).
-- [~] **M2** — Swarm dispatch MCP + agent roster + conductor doctrine (in progress).
-- [ ] M3 goal runtime · M4 csw-plan · M5 executor + continuation hook · M6 steering ·
-  M7 review orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
+- [x] **M2** — Swarm dispatch MCP + 6-agent roster + swarm skill. 54 tests green;
+  reviewer UNCONDITIONAL APPROVAL. Live: model called `csw-dispatch-dispatch`, ran 2
+  parallel `copilot -p` workers (QQAAQQ/ZZBBZZ); agents auto-namespaced `copilot-swarm:*`;
+  `${PLUGIN_ROOT}` expands. Recursion depth guard (`CSW_DISPATCH_DEPTH`, default max 1).
+- [~] **M3** — Durable evidence-gated goal runtime (lean Node ESM) (in progress).
+- [ ] M4 csw-plan · M5 executor + continuation hook · M6 steering · M7 review
+  orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
+
+## Key live-CLI findings (see `# REFERENCE/_CSW_NOTES.md §5`)
+- Plugin MCP servers: `${PLUGIN_ROOT}` expands in `mcpServers` args; tools surface as
+  `<server>-<tool>`; `copilot mcp list` does NOT show plugin servers.
+- Plugin agents auto-namespaced `copilot-swarm:<name>`; `--agent` needs the full id.
+- Direct local-path install copies the whole dir (ignores `files`/`.gitignore`) and is
+  deprecated → QA from a clean `git archive` export; distribute via marketplace/owner-repo.
 
 ## Hard rules
 
