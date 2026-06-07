@@ -13,3 +13,6 @@ npm-debug.log*
 
 # OS
 .DS_Store
+
+# Internal working doc — not part of the published repo
+HANDOFF.md
