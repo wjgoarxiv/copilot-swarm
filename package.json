@@ -24,7 +24,8 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.mjs\"",
     "scan": "node scripts/scan-forbidden.mjs --surface all",
-    "pack:dry-run": "npm pack --dry-run"
+    "pack:dry-run": "npm pack --dry-run",
+    "postinstall": "node scripts/postinstall.mjs"
   },
   "keywords": [
     "copilot",

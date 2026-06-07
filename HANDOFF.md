@@ -65,9 +65,25 @@
 - No `npm publish` and no push without explicit approval.
 - No AI attribution in commits.
 
-## Publish (when approved)
+## ⚠️ npm publish — DO LATER (deferred, not now)
 
-1. (Optional) set `## [0.1.0] - <date>` in CHANGELOG; add `repository`/`homepage` to
-   package.json for npm discoverability.
+**Do NOT `npm publish` yet.** Publishing is intentionally postponed to a later time
+(user's instruction + RESTRAINT R6). The package is release-ready and works via local
+install today; publishing happens only when explicitly decided later.
+
+When publishing later:
+1. Set `## [0.1.0] - <date>` in CHANGELOG; add `repository`/`homepage` to package.json
+   (also makes npmjs.com resolve the README's relative `./cover.png`, which is
+   intentionally **not bundled** in the tarball to keep it lean — it is tracked in git
+   for the GitHub README only).
 2. `npm publish` (or push to GitHub and `copilot plugin install <owner>/<repo>`).
 3. Push `feat/csw-0.1.0` and fast-forward `main` (per approval).
+
+## Local install (works now, no publish needed)
+
+```sh
+npm pack && npm install -g ./copilot-swarm-0.1.0.tgz   # prints the TUI install banner
+csw install && csw status
+```
+(`npm install -g .` is NOT recommended — it symlinks the dev tree; `csw install` now
+packs the allowlisted set so the installed plugin is clean regardless.)
