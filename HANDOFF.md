@@ -29,8 +29,16 @@
 - [x] **M5** — Executor skill `csw-work` + continuation hook (agentStop/subagentStop) +
   `csw-runtime clear` escape hatch. 83 tests green; reviewer UNCONDITIONAL APPROVAL; live
   agentStop force-continue verified. Finding: expose `csw`/`csw-runtime` on PATH in M9.
-- [~] **M6** — Structured steering refusal hook (in progress).
-- [ ] M7 review orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
+- [x] **M6** — Structured steering refusal. `sessionStart` doctrine injector (the
+  always-on instruction vehicle) + `userPromptSubmitted` audit hook + shared
+  `hooks/lib/read-stdin.mjs`. 95 tests green; reviewer UNCONDITIONAL APPROVAL; live:
+  model refused a weakening instruction citing the injected doctrine.
+- [~] **M7** — Multi-lane review orchestrator skill (in progress).
+- [ ] M8 supporting hooks (rules/comment-checker/lsp/git-guide) · M9 install UX · M10 release prep.
+
+> KEY MECHANISM (live-verified): plugin `AGENTS.md` is NOT auto-loaded; inject
+> always-on doctrine via a `sessionStart` hook's `additionalContext` (honored).
+> `userPromptSubmitted` `additionalContext` is NOT surfaced to the model.
 
 > NOTE: running `bin/csw-runtime.mjs` from the repo root writes to the repo's own
 > git-ignored `.csw/` — drive QA/reviews in a temp `cwd` (or set `CSW_HOME`) to

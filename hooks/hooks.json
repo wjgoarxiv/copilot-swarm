@@ -1,6 +1,20 @@
 {
   "version": 1,
   "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "node \"${PLUGIN_ROOT}/hooks/session-doctrine.mjs\"",
+        "timeoutSec": 10
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "node \"${PLUGIN_ROOT}/hooks/steering-guard.mjs\"",
+        "timeoutSec": 10
+      }
+    ],
     "agentStop": [
       {
         "type": "command",

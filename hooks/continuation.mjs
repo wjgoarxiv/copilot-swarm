@@ -10,6 +10,7 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { loadState } from "../runtime/src/store.mjs";
 import { evaluate } from "../runtime/src/oracle.mjs";
+import { readStdin } from "./lib/read-stdin.mjs";
 
 /** Pure decision from a goal state. Exported for tests. */
 export function decide(state) {
@@ -28,20 +29,6 @@ export function decide(state) {
       `completion oracle passes. If a blocker is genuinely unresolvable, escalate to the ` +
       `user; to abandon the goal entirely run \`csw-runtime clear\`.`,
   };
-}
-
-function readStdin() {
-  return new Promise((resolve) => {
-    let buf = "";
-    let done = false;
-    const finish = () => { if (!done) { done = true; resolve(buf); } };
-    process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (d) => (buf += d));
-    process.stdin.on("end", finish);
-    process.stdin.on("error", finish);
-    // If nothing is piped, resolve promptly so the hook never hangs.
-    setTimeout(finish, 250);
-  });
 }
 
 async function main() {
