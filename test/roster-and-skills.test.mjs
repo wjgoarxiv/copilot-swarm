@@ -42,7 +42,9 @@ test("each agent has valid frontmatter (name matches filename, description prese
 test("every skill has valid frontmatter (name == dir), is token-clean, and references resolve", () => {
   const skillsDir = join(repoRoot, "skills");
   const dirs = readdirSync(skillsDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-  assert.ok(dirs.includes("swarm") && dirs.includes("csw-plan"), "expected swarm + csw-plan skills");
+  for (const s of ["swarm", "csw-plan", "csw-work", "csw-review"]) {
+    assert.ok(dirs.includes(s), `expected skill: ${s}`);
+  }
   for (const d of dirs) {
     const p = join(skillsDir, d, "SKILL.md");
     assert.ok(existsSync(p), `${d}/SKILL.md must exist`);
