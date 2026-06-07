@@ -36,7 +36,12 @@
 - [x] **M7** — Multi-lane review orchestrator skill `csw-review` (F1-F4 all-or-nothing). Live activation PASS.
 - [x] **M8** — Supporting components: comment-checker (postToolUse) PORTED; LSP kept-native, rules/git-guide/telemetry skip (docs/supporting-components.md). 103 tests; reviewer UNCONDITIONAL APPROVAL; live additionalContext honored.
 - [x] **M9** — Install UX (csw CLI: banner/themes/status/install/doctor) + absolute runtime-command injection (fixes M5 PATH finding). 112 tests; reviewer UNCONDITIONAL APPROVAL.
-- [~] **M10** — Release prep 0.1.0 (in progress).
+- [x] **M10** — Release prep 0.1.0. All version surfaces 0.1.0; 112 tests green;
+  scanner clean on all 3 surfaces; `npm pack` = `copilot-swarm@0.1.0`, 35 files, ~30 kB;
+  release-tarball install token-free; FINAL release reviewer gate UNCONDITIONAL APPROVAL.
+  **Publish: deferred — awaiting explicit user approval.**
+
+## STATUS: ALL MILESTONES COMPLETE — release-ready, publish pending user approval.
 
 > KEY MECHANISM (live-verified): plugin `AGENTS.md` is NOT auto-loaded; inject
 > always-on doctrine via a `sessionStart` hook's `additionalContext` (honored).
@@ -60,7 +65,9 @@
 - No `npm publish` and no push without explicit approval.
 - No AI attribution in commits.
 
-## Resume
+## Publish (when approved)
 
-Run `/lazyclaude:start-work` and continue the first unchecked milestone in the plan.
-Ledger: `.csw/ledger.jsonl` (created during execution).
+1. (Optional) set `## [0.1.0] - <date>` in CHANGELOG; add `repository`/`homepage` to
+   package.json for npm discoverability.
+2. `npm publish` (or push to GitHub and `copilot plugin install <owner>/<repo>`).
+3. Push `feat/csw-0.1.0` and fast-forward `main` (per approval).

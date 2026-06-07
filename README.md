@@ -11,18 +11,19 @@ no model-callable subagent-spawn primitive, CSW ships its own **dispatch MCP**
 that orchestrates parallel `copilot -p` workers, restoring model-driven parallel
 delegation.
 
-> Status: **0.1.0, in development.** See `plans/0001-csw-port.md` for the roadmap.
+> Status: **0.1.0.**
 
-## What's inside (planned for 0.1.0)
+## What's inside
 
-- **Swarm dispatch MCP** — model-callable parallel delegation over `copilot -p`.
-- **Agent roster** — focused `.agent.md` workers (explorer, researcher, planner,
-  gap-analyst, plan-reviewer, verifier) plus a conductor doctrine.
+- **Swarm dispatch MCP** — model-callable parallel delegation over `copilot -p`
+  (tools: `dispatch`, `code_search`, `research`).
+- **Agent roster** — focused workers (explorer, researcher, planner, gap-analyst,
+  plan-reviewer, verifier) plus a conductor doctrine injected every session.
 - **Durable goal runtime** — evidence-gated success criteria, completion oracle,
   steering guard, append-only ledger, stored under `.csw/`.
-- **Workflow skills** — planning, execution, and multi-lane review.
-- **Supporting hooks** — context-injection rules, comment checks, diagnostics,
-  and a continuation gate that keeps work going until the plan is done.
+- **Workflow skills** — `swarm`, `csw-plan`, `csw-work`, `csw-review`.
+- **Hooks** — session doctrine injection, steering audit, comment checks, and a
+  continuation gate that keeps work going until the goal's oracle passes.
 
 ## Requirements
 
@@ -31,8 +32,16 @@ delegation.
 
 ## Install
 
-Installation lands in a later milestone. The package will be installable as a
-Copilot CLI plugin (`copilot plugin install ...`).
+```sh
+npm install -g copilot-swarm
+csw install            # registers the plugin with Copilot CLI
+# or, directly:
+copilot plugin install <owner>/<repo>
+```
+
+Then start a session with `copilot`. The skills are available as
+`/copilot-swarm:swarm`, `/copilot-swarm:csw-plan`, `/copilot-swarm:csw-work`, and
+`/copilot-swarm:csw-review`; run `csw status` to check the install.
 
 ## Development
 
