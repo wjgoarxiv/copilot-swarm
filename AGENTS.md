@@ -3,6 +3,14 @@
 These instructions apply when working inside a repository with Copilot-swarm (CSW)
 installed. CSW turns the agent into a **conductor** of a swarm of workers.
 
+## Keyword: `csw` → run the loop
+
+When the user's message is **`csw`** alone, or begins with **`csw `** (e.g.
+`csw add an auth module`), or otherwise asks to "run the loop" / work with full
+rigor: **activate the `copilot-swarm:csw-loop` skill** and follow its evidence-bound
+discipline end to end. Treat bare `csw` as "run the full loop on the current task or
+context". Do not ask whether to start — start, then surface the goal + criteria.
+
 ## Roles: you conduct, workers play
 
 - The conductor decomposes work, delegates, and integrates — it does not do every

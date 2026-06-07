@@ -26,7 +26,9 @@ evidence-gated plan → execute → review workflow.
   a `clear` escape hatch.
 - **Skills** — `swarm` (parallel delegation), `csw-plan` (explore-first planning with
   an approval gate), `csw-work` (disciplined execution), `csw-review` (multi-lane
-  all-or-nothing review).
+  all-or-nothing review), and `csw-loop` — typing the **`csw`** keyword runs the full
+  evidence-bound autonomous loop (goal → plan → test-first execute → QA → review →
+  oracle), declared in the session-start doctrine so it activates on the keyword.
 - **Hooks** — `sessionStart` doctrine injection (the always-on instruction vehicle),
   `userPromptSubmitted` steering audit, `postToolUse` comment-checker (anti AI-slop),
   and `agentStop`/`subagentStop` continuation gate (force-continue until the oracle

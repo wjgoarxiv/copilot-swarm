@@ -72,6 +72,10 @@ csw install
 
 In a `copilot` session:
 
+- **Run the loop** — type **`csw`** (alone, or `csw <task>`) to start the full
+  evidence-bound loop (`csw-loop`): it binds a goal, plans if needed, then drives
+  test-first execution → real manual QA → review → cleanup until the completion oracle
+  passes. (Equivalent explicit form: `/copilot-swarm:csw-loop`.)
 - **Parallelize** — just ask: *"investigate auth, session storage, and rate limiting in
   parallel"*. CSW dispatches read-only workers and you integrate the results skeptically.
 - **Plan** — `/copilot-swarm:csw-plan` runs explore-first research, interviews you on

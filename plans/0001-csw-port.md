@@ -217,7 +217,7 @@ Build first (M0), keep green throughout. Spec in `# REFERENCE/_CSW_NOTES.md §2`
   `create_goal` in tool surface). State this; offer user to bind native `/goal
   "CSW 0.1.0 ports all agreed capabilities; scanner 3-surface green; live copilot
   load PASS; reviewer UNCONDITIONAL APPROVAL; no publish"`. If declined/absent →
-  use LazyClaude ledger fallback (`.csw/ledger.jsonl` + this plan's checkboxes).
+  use the durable ledger fallback (`.csw/ledger.jsonl` + this plan's checkboxes).
 - Dynamic workflow: for broad/parallel milestones (M2, M7, M8), call the `Workflow`
   tool to fan out lanes; each lane binds explicit criteria + artifact path + cleanup.
 - Worktree: if isolated parallel edits risk conflict, use `EnterWorktree` (or

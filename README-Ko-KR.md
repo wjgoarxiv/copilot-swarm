@@ -66,6 +66,9 @@ csw install
 
 `copilot` 세션 안에서:
 
+- **루프 실행** — **`csw`** 라고 입력(단독, 또는 `csw <작업>`)하면 풀 증거 기반 루프(`csw-loop`)가
+  시작됩니다: goal 바인딩 → 필요 시 계획 → test-first 실행 → 실제 수동 QA → 리뷰 → 완료 oracle 통과까지.
+  (명시적 형태: `/copilot-swarm:csw-loop`)
 - **병렬화** — 그냥 부탁: *"auth / 세션저장 / 레이트리밋 위치를 병렬로 조사해줘"*. CSW가 read-only
   워커를 띄우고, 당신은 결과를 회의적으로 통합합니다.
 - **계획** — `/copilot-swarm:csw-plan`: explore 우선 조사 → 진짜 미지수만 인터뷰 → **승인 게이트**에서

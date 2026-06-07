@@ -7,7 +7,7 @@
 - **Branch:** `feat/csw-0.1.0` (never commit to `main` directly).
 - **Phase 0 evidence:** `# REFERENCE/_CSW_NOTES.md` (git-ignored — Copilot CLI
   contract, reference inventory, alias map, forbidden-token list).
-- **Native goal bound:** `/goal /lazyclaude:start-work`.
+- **Native goal:** bound via the harness `/goal <completion condition>` surface.
 
 ## Milestone progress
 
@@ -40,6 +40,15 @@
   scanner clean on all 3 surfaces; `npm pack` = `copilot-swarm@0.1.0`, 35 files, ~30 kB;
   release-tarball install token-free; FINAL release reviewer gate UNCONDITIONAL APPROVAL.
   **Publish: deferred — awaiting explicit user approval.**
+
+- [x] **Post-release: `csw` keyword → `csw-loop`** — typing `csw` runs the full
+  evidence-bound loop. Ported from the reference's "keyword → loop" UserPromptSubmit-hook
+  trigger, but adapted: Copilot does NOT deliver `userPromptSubmitted` `additionalContext`
+  to the model, so the trigger is a `csw-loop` skill (auto-activates on description) + the
+  `sessionStart` doctrine (AGENTS.md "Keyword: `csw`"). Scanner extended with the
+  sibling-port family brand tokens (see `# REFERENCE/_CSW_NOTES.md §6`). 132 tests; reviewer
+  UNCONDITIONAL APPROVAL. NOT live-tested (Copilot quota out) — reuses M4 (skill activation)
+  + M6 (sessionStart doctrine) verified surfaces; content-probe when quota returns.
 
 ## STATUS: ALL MILESTONES COMPLETE — release-ready, publish pending user approval.
 

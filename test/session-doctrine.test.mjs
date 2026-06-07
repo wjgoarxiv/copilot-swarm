@@ -17,6 +17,12 @@ test("doctrine: includes the steering + delegation doctrine from AGENTS.md", () 
   assert.match(d, /parallel/i);
 });
 
+test("doctrine declares the `csw` keyword trigger for the loop", () => {
+  const d = doctrine();
+  assert.match(d, /Keyword: `csw`/);
+  assert.match(d, /csw-loop/);
+});
+
 test("doctrine: returns null if the doctrine file is unreadable", () => {
   assert.equal(doctrine(() => { throw new Error("nope"); }), null);
 });

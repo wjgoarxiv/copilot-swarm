@@ -25,6 +25,10 @@ const SUBSTR_B64 = [
   "c2lzeXBodXMgbGFicw==",
   "eWVvbmd5dQ==",
   "bWlncmF0ZS1jb2RleC1jb25maWc=",
+  "bGF6eWNsYXVkZQ==",
+  "bGF6eWhlcm1lcw==",
+  "dWx0cmFnb2Fs",
+  "c3BhcmtzaGVsbA==",
 ];
 
 const BOUNDARY_B64 = [
@@ -38,6 +42,7 @@ const BOUNDARY_B64 = [
   "dWx0cmF3b3Jr",
   "dWx3",
   "Ym91bGRlcg==",
+  "aGVybWVz",
 ];
 
 /** Decoded token table: [{ token, mode }]. Computed once. */
