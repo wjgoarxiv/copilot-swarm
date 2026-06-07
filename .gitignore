@@ -1,0 +1,15 @@
+# Reference implementation — read-only, never tracked or packaged
+/\# REFERENCE/
+
+# Node
+node_modules/
+dist/
+*.tgz
+npm-debug.log*
+
+# CSW durable runtime state & QA artifacts (runtime-local, never tracked)
+.csw/
+.csw-qa/
+
+# OS
+.DS_Store
