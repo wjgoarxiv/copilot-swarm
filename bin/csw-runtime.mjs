@@ -11,6 +11,7 @@
 //   blocker resolve --id <id>
 //   steer --text <s>              exit 0 accepted, exit 3 refused (weakening)
 //   complete                      exit 0 if completed, exit 1 if gates unmet
+//   clear                         abandon the active goal (escape hatch)
 //
 // Exit codes: 0 ok, 1 gate/operation failure, 2 usage error, 3 steering refused.
 
@@ -72,6 +73,10 @@ export function main(argv, cwd = process.cwd()) {
         const r = rt.steer({ text: f.text }, cwd);
         out(r);
         return r.accepted ? 0 : 3;
+      }
+      case "clear": {
+        out(rt.clearGoal(cwd));
+        return 0;
       }
       case "complete": {
         const s = rt.complete(cwd);

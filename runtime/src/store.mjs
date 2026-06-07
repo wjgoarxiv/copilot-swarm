@@ -4,14 +4,22 @@
 // surface). `state.json` is the current goal; `ledger.jsonl` is an append-only
 // audit log. Writes are atomic (temp file + rename).
 
-import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 export function cswDir(cwd = process.cwd()) {
+  // CSW_HOME is a test/advanced override. Do NOT set it globally (e.g. in a shell
+  // profile): every project would then share one goal state and the continuation
+  // hook could block unrelated sessions. Normal use is the per-project `.csw/`.
   return process.env.CSW_HOME || join(cwd, ".csw");
 }
 export const statePath = (cwd) => join(cswDir(cwd), "state.json");
 export const ledgerPath = (cwd) => join(cswDir(cwd), "ledger.jsonl");
+
+export function removeState(cwd) {
+  const p = statePath(cwd);
+  if (existsSync(p)) rmSync(p, { force: true });
+}
 
 export function loadState(cwd) {
   const p = statePath(cwd);

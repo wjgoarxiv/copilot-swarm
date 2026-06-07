@@ -178,6 +178,19 @@ test("runtime: steer rejects weakening and logs to ledger", () => {
   }
 });
 
+test("runtime: clearGoal removes state and logs goal_cleared", () => {
+  const cwd = tmp();
+  try {
+    rt.initGoal({ objective: "x", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
+    assert.equal(rt.clearGoal(cwd).cleared, true);
+    assert.equal(rt.getState(cwd), null);
+    assert.match(readFileSync(join(cwd, ".csw/ledger.jsonl"), "utf8"), /goal_cleared/);
+    assert.equal(rt.clearGoal(cwd).cleared, false); // nothing to clear
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 // --- CLI ---
 test("CLI main: init/status/evidence/complete exit codes", () => {
   const cwd = tmp();

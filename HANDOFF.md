@@ -25,9 +25,12 @@
   reviewer UNCONDITIONAL APPROVAL. Criteria block `C0NN | channel: | test: | scenario:`,
   atomic `.csw/` store + JSONL ledger, completion oracle (pass+evidence+0 blockers),
   steering guard (refuses skip/bypass/dismiss/auto-complete), CLI `bin/csw-runtime.mjs`.
-- [~] **M4** — Planning skill `csw-plan` (in progress).
-- [ ] M5 executor + continuation hook · M6 steering hook · M7 review orchestrator ·
-  M8 supporting hooks · M9 install UX · M10 release prep.
+- [x] **M4** — Planning skill `csw-plan`. Live content-probe activation PASS.
+- [x] **M5** — Executor skill `csw-work` + continuation hook (agentStop/subagentStop) +
+  `csw-runtime clear` escape hatch. 83 tests green; reviewer UNCONDITIONAL APPROVAL; live
+  agentStop force-continue verified. Finding: expose `csw`/`csw-runtime` on PATH in M9.
+- [~] **M6** — Structured steering refusal hook (in progress).
+- [ ] M7 review orchestrator · M8 supporting hooks · M9 install UX · M10 release prep.
 
 > NOTE: running `bin/csw-runtime.mjs` from the repo root writes to the repo's own
 > git-ignored `.csw/` — drive QA/reviews in a temp `cwd` (or set `CSW_HOME`) to

@@ -2,7 +2,7 @@
 // oracle, and steering guard into the operations the CLI / hooks call.
 
 import { parseCriteria } from "./criteria.mjs";
-import { loadState, saveState, appendLedger } from "./store.mjs";
+import { loadState, saveState, appendLedger, removeState } from "./store.mjs";
 import { evaluate } from "./oracle.mjs";
 import { classifySteering } from "./steering.mjs";
 
@@ -91,6 +91,15 @@ export function steer({ text }, cwd, { now = new Date().toISOString() } = {}) {
   }
   appendLedger({ kind: "steering_accepted", text: String(text).slice(0, 200) }, cwd, { at: now });
   return { accepted: true };
+}
+
+/** Abandon the active goal (escape hatch). Removes state so the hook stops blocking. */
+export function clearGoal(cwd, { now = new Date().toISOString() } = {}) {
+  const state = loadState(cwd);
+  if (!state) return { cleared: false, reason: "no active goal" };
+  appendLedger({ kind: "goal_cleared", objective: state.objective }, cwd, { at: now });
+  removeState(cwd);
+  return { cleared: true };
 }
 
 /** Mark the goal complete — only if the oracle says every gate is satisfied. */
