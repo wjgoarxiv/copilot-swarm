@@ -97,6 +97,7 @@ const USAGE = `csw — Copilot-swarm
   csw            status (environment + plugin state)
   csw install    install this package as a Copilot CLI plugin
   csw doctor     environment diagnostics (JSON)
+  csw hud        print the settings snippet to enable the HUD status line
   csw help       this message
 
 Options: --theme <violet|ocean|mono>  --no-color`;
@@ -106,6 +107,13 @@ export function main(argv) {
   const color = a.color && process.stdout.isTTY !== false;
   if (a.cmd === "help") { console.log(USAGE); return 0; }
   if (a.cmd === "doctor") { console.log(JSON.stringify(doctor(), null, 2)); return 0; }
+  if (a.cmd === "hud") {
+    const cmd = `node "${join(PKG_ROOT, "bin", "csw-statusline.mjs")}"`;
+    console.log("Add this to ~/.copilot/settings.json to enable the CSW HUD status line:\n");
+    console.log(JSON.stringify({ statusLine: { command: cmd } }, null, 2));
+    console.log("\nIt shows the active goal's criteria progress / blockers (nothing when no goal is active).");
+    return 0;
+  }
   if (a.cmd === "status") { console.log(statusReport(doctor(), color, a.theme)); return 0; }
   if (a.cmd === "install") {
     const mark = color ? OK : "[ok]";

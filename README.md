@@ -24,6 +24,8 @@ delegation.
 - **Workflow skills** — `swarm`, `csw-plan`, `csw-work`, `csw-review`.
 - **Hooks** — session doctrine injection, steering audit, comment checks, and a
   continuation gate that keeps work going until the goal's oracle passes.
+- **HUD status line** — a live `statusLine` showing the active goal's criteria
+  progress and blockers. Enable with `csw hud` (prints the settings snippet).
 
 ## Requirements
 

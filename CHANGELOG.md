@@ -33,6 +33,9 @@ evidence-gated plan → execute → review workflow.
   passes).
 - **Install UX** — `bin/csw` CLI with an ANSI banner, theme presets, and
   status/install/doctor commands.
+- **HUD status line** — `bin/csw-statusline.mjs` for Copilot CLI's `statusLine`
+  surface: shows the active goal's criteria progress, open blockers, and objective
+  below the input (nothing when no goal is active). Enable via `csw hud`.
 - **Release-cleanliness oracle** — `scripts/scan-forbidden.mjs` gating the tracked,
   packable, and `npm pack` tarball surfaces.
 
