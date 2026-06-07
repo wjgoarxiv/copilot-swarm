@@ -62,7 +62,7 @@ copilot                         # start a session — CSW is active
 ### From source (before npm publish)
 
 ```sh
-git clone <owner>/<repo> copilot-swarm && cd copilot-swarm
+git clone https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
 npm pack                                    # build copilot-swarm-0.1.0.tgz
 npm install -g ./copilot-swarm-0.1.0.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
 csw install

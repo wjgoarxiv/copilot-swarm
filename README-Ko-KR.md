@@ -56,7 +56,7 @@ copilot                         # 세션 시작 — CSW 활성화됨
 ### 소스에서 설치 (npm publish 이전)
 
 ```sh
-git clone <owner>/<repo> copilot-swarm && cd copilot-swarm
+git clone https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
 npm pack                                    # copilot-swarm-0.1.0.tgz 생성
 npm install -g ./copilot-swarm-0.1.0.tgz    # clean copy (`npm i -g .` 는 dev 트리를 심링크하므로 비권장)
 csw install

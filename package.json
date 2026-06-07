@@ -25,7 +25,8 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "scan": "node scripts/scan-forbidden.mjs --surface all",
     "pack:dry-run": "npm pack --dry-run",
-    "postinstall": "node scripts/postinstall.mjs"
+    "postinstall": "node scripts/postinstall.mjs",
+    "prepublishOnly": "npm test && npm run scan"
   },
   "keywords": [
     "copilot",
@@ -37,6 +38,15 @@
     "mcp"
   ],
   "license": "MIT",
+  "author": "wjgoarxiv",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wjgoarxiv/copilot-swarm.git"
+  },
+  "homepage": "https://github.com/wjgoarxiv/copilot-swarm#readme",
+  "bugs": {
+    "url": "https://github.com/wjgoarxiv/copilot-swarm/issues"
+  },
   "engines": {
     "node": ">=20"
   }
