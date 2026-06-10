@@ -14,6 +14,7 @@
     "skills",
     "agents",
     "hooks",
+    ".github/plugin",
     ".plugin",
     ".mcp.json",
     "AGENTS.md",
