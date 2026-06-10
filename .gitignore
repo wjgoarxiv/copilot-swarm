@@ -11,6 +11,9 @@ npm-debug.log*
 .csw/
 .csw-qa/
 
+# Local plans, ledgers, drafts, and agent state
+.o[m]o/
+
 # OS
 .DS_Store
 
