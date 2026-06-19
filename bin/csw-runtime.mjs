@@ -18,6 +18,7 @@
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as rt from "../runtime/src/runtime.mjs";
+import { redactObject } from "../runtime/src/redact.mjs";
 
 function parseFlags(argv) {
   const f = {};
@@ -32,7 +33,7 @@ function parseFlags(argv) {
 }
 
 function out(obj) {
-  process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
+  process.stdout.write(JSON.stringify(redactObject(obj), null, 2) + "\n");
 }
 
 export function main(argv, cwd = process.cwd()) {
@@ -64,8 +65,15 @@ export function main(argv, cwd = process.cwd()) {
       }
       case "blocker": {
         const [sub] = rest;
-        if (sub === "add") { rt.addBlocker({ id: f.id, reason: f.reason }, cwd); out({ ok: true }); return 0; }
-        if (sub === "resolve") { rt.resolveBlocker({ id: f.id }, cwd); out({ ok: true }); return 0; }
+        if (sub === "add") {
+          if (typeof f.id !== "string") return fail2("blocker add requires --id <id>");
+          if (typeof f.reason !== "string") return fail2("blocker add requires --reason <text>");
+          rt.addBlocker({ id: f.id, reason: f.reason }, cwd); out({ ok: true }); return 0;
+        }
+        if (sub === "resolve") {
+          if (typeof f.id !== "string") return fail2("blocker resolve requires --id <id>");
+          rt.resolveBlocker({ id: f.id }, cwd); out({ ok: true }); return 0;
+        }
         return fail2("blocker requires 'add' or 'resolve'");
       }
       case "steer": {

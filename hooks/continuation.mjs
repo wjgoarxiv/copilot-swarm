@@ -10,20 +10,39 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { loadState } from "../runtime/src/store.mjs";
 import { evaluate } from "../runtime/src/oracle.mjs";
+import { redactText, safeMode, sanitizeLine } from "../runtime/src/redact.mjs";
 import { readStdin } from "./lib/read-stdin.mjs";
 
+const DEFAULT_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function staleMs(env = process.env) {
+  const n = Number(env.CSW_CONTINUATION_STALE_MS);
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_STALE_MS;
+}
+
+function isStale(state, now = Date.now(), env = process.env) {
+  const stamp = state?.updatedAt || state?.createdAt;
+  if (!stamp) return false;
+  const t = Date.parse(stamp);
+  return Number.isFinite(t) && now - t > staleMs(env);
+}
+
 /** Pure decision from a goal state. Exported for tests. */
-export function decide(state) {
+export function decide(state, opts = {}) {
+  if (opts.safeMode || safeMode(opts.env)) return { block: false };
   if (!state || state.completed) return { block: false };
+  if (isStale(state, opts.now ?? Date.now(), opts.env)) return { block: false };
   // Invalid/empty goal (no criteria) must NOT trap the agent — there is nothing to
   // satisfy, so blocking would livelock with an impossible condition. Fail open.
   if (!Array.isArray(state.criteria) || state.criteria.length === 0) return { block: false };
   const v = evaluate(state);
   if (v.done) return { block: false };
+  const objective = sanitizeLine(state.objective || "", 120);
+  const reasons = v.reasons.map((r) => redactText(r));
   return {
     block: true,
     reason:
-      `CSW goal "${state.objective}" is not complete. Unmet gates:\n - ${v.reasons.join("\n - ")}\n` +
+      `CSW goal "${objective}" is not complete. Unmet gates:\n - ${reasons.join("\n - ")}\n` +
       `Keep working toward these criteria and capture evidence with ` +
       `\`csw-runtime evidence --id <C0NN> --evidence <proof>\`. Do not stop until the ` +
       `completion oracle passes. If a blocker is genuinely unresolvable, escalate to the ` +
@@ -39,6 +58,7 @@ async function main() {
     payload = {};
   }
   const cwd = payload.cwd || process.cwd();
+  if (safeMode()) process.exit(0);
   let state = null;
   try {
     state = loadState(cwd);

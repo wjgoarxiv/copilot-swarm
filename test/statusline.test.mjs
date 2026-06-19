@@ -48,6 +48,14 @@ test("render: truncates long objectives", () => {
   assert.ok(!s.includes(long));
 });
 
+test("render: objective is redacted and single-line", () => {
+  const secret = "ghp_" + "A".repeat(36);
+  const s = render({ objective: `deploy\n${secret}\u001b[31m`, criteria: [{ status: "pending", evidence: secret }], reviewBlockers: [{ reason: secret, resolved: false }] });
+  assert.doesNotMatch(s, /\n/);
+  assert.doesNotMatch(s, new RegExp(secret));
+  assert.match(s, /REDACTED/);
+});
+
 test("e2e: statusline reads .csw state for the cwd in stdin", async () => {
   const cwd = mkdtempSync(join(tmpdir(), "csw-hud-"));
   try {

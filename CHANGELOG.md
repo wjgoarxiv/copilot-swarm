@@ -5,6 +5,24 @@ All notable changes to Copilot-swarm (CSW) are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-06-19
+
+### Added
+- Release preflight checks for version lockstep, README-linked package payloads,
+  and exclusion of local CSW evidence artifacts from npm packages.
+- Deterministic redaction for CSW runtime state, ledger, hook snippets, and MCP
+  worker summaries before they are persisted or surfaced.
+- Safe mode (`CSW_SAFE_MODE=1`) and stale-state fail-open behavior for continuation,
+  disabling hook context emission/auditing, and dispatch escape hatches.
+- Install-time permission profiles (`safe`, `balanced`, `full`, `none`) for npx and
+  local `csw install` flows, including dry-run reporting and MCP tool/profile wiring.
+
+### Changed
+- npm `prepublishOnly` now runs tests, forbidden-token scans, release checks, and a
+  dry-run package build before any human-gated publish attempt.
+- The npm payload now includes README-linked local assets/docs (`cover.png`,
+  `README-Ko-KR.md`, and `docs/`).
+
 ## [0.1.0] - 2026-06-07
 
 First release: a native GitHub Copilot CLI plugin for parallel delegation and an

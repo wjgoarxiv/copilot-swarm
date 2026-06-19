@@ -24,9 +24,10 @@ test("plugin manifest exists at an awesome-copilot external plugin lookup locati
 
 test("plugin manifest is valid JSON with required identity fields", () => {
   const m = readJson(primaryManifestPath);
+  const pkg = readJson("package.json");
   assert.equal(m.name, "copilot-swarm");
   assert.match(m.name, /^[a-z0-9][a-z0-9-]*$/, "name must be kebab-case");
-  assert.equal(m.version, "0.1.0");
+  assert.equal(m.version, pkg.version);
   assert.match(m.version, /^\d+\.\d+\.\d+$/, "version must be semver");
   assert.ok(typeof m.description === "string" && m.description.length > 0);
 });

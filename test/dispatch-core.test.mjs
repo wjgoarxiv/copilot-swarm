@@ -32,7 +32,16 @@ function fakeSpawn({ stdout = "", stderr = "", code = 0, emitError = null, delay
 
 // --- buildArgs ---
 test("buildArgs: default mode", () => {
-  assert.deepEqual(buildArgs({ prompt: "do x" }), ["-p", "do x", "--allow-all-tools"]);
+  assert.deepEqual(buildArgs({ prompt: "do x" }), ["-p", "do x"]);
+});
+
+test("buildArgs: permission profiles control only supported Copilot permission flags", () => {
+  assert.deepEqual(buildArgs({ prompt: "x", permissionProfile: "balanced" }), ["-p", "x"]);
+  assert.deepEqual(buildArgs({ prompt: "x", permissionProfile: "safe" }), ["-p", "x", "--deny-tool", "write"]);
+  assert.deepEqual(buildArgs({ prompt: "x", permissionProfile: "full" }), ["-p", "x", "--allow-all-tools"]);
+  assert.deepEqual(buildArgs({ prompt: "x", permissionProfile: "none" }), ["-p", "x"]);
+  assert.throws(() => buildArgs({ prompt: "x", permissionProfile: "bogus" }), /invalid permission profile/);
+  assert.throws(() => buildArgs({ prompt: "x", permissionProfile: "custom" }), /not implemented/);
 });
 
 test("buildArgs: read_only adds preamble and denies write", () => {
@@ -41,6 +50,7 @@ test("buildArgs: read_only adds preamble and denies write", () => {
   assert.match(a[1], /READ-ONLY TASK/);
   assert.match(a[1], /find y/);
   assert.ok(a.includes("--deny-tool") && a.includes("write"));
+  assert.ok(!a.includes("--allow-all-tools"));
 });
 
 test("buildArgs: research adds citation preamble and denies write", () => {
@@ -74,6 +84,19 @@ test("runOne: success captures trimmed stdout", async () => {
   assert.equal(r.exitCode, 0);
   assert.equal(r.output, "result");
   assert.equal(r.id, "t1");
+});
+
+test("runOne: redacts worker stdout/stderr and does not pass secret env", async () => {
+  const calls = [];
+  const secret = "ghp_" + "A".repeat(36);
+  const r = await runOne(
+    { id: "safe", prompt: "x" },
+    { spawnImpl: fakeSpawn({ stdout: `out ${secret}`, stderr: `err token=${secret}`, code: 2 }, calls), env: { ...process.env, GH_TOKEN: secret, PATH: process.env.PATH || "" } },
+  );
+  assert.doesNotMatch(r.output, new RegExp(secret));
+  assert.doesNotMatch(r.error, new RegExp(secret));
+  assert.equal(calls[0].opts.env.GH_TOKEN, undefined);
+  assert.ok(calls[0].opts.env.PATH !== undefined);
 });
 
 test("runOne: non-zero exit reports error", async () => {
@@ -162,6 +185,32 @@ test("runDispatch: injects incremented CSW_DISPATCH_DEPTH into worker env", asyn
   assert.equal(calls[0].opts.env.CSW_DISPATCH_DEPTH, "1"); // parent depth 0 -> child 1
 });
 
+test("runDispatch: normalizes invalid depth and strips secret env", async () => {
+  const savedDepth = process.env.CSW_DISPATCH_DEPTH;
+  const savedToken = process.env.NPM_TOKEN;
+  process.env.CSW_DISPATCH_DEPTH = "not-a-number";
+  process.env.NPM_TOKEN = "npm_" + "A".repeat(20);
+  const calls = [];
+  try {
+    await runDispatch({ tasks: [{ prompt: "x" }] }, { spawnImpl: fakeSpawn({}, calls) });
+    assert.equal(calls[0].opts.env.CSW_DISPATCH_DEPTH, "1");
+    assert.equal(calls[0].opts.env.NPM_TOKEN, undefined);
+  } finally {
+    if (savedDepth === undefined) delete process.env.CSW_DISPATCH_DEPTH; else process.env.CSW_DISPATCH_DEPTH = savedDepth;
+    if (savedToken === undefined) delete process.env.NPM_TOKEN; else process.env.NPM_TOKEN = savedToken;
+  }
+});
+
+test("runDispatch: safe mode disables worker dispatch", async () => {
+  const saved = process.env.CSW_SAFE_MODE;
+  process.env.CSW_SAFE_MODE = "1";
+  try {
+    await assert.rejects(() => runDispatch({ tasks: [{ prompt: "x" }] }, { spawnImpl: fakeSpawn({}) }), /CSW_SAFE_MODE/);
+  } finally {
+    if (saved === undefined) delete process.env.CSW_SAFE_MODE; else process.env.CSW_SAFE_MODE = saved;
+  }
+});
+
 test("runOne: synchronous spawn throw resolves to error (preserves isolation)", async () => {
   const throwingSpawn = () => { throw new Error("sync-spawn-boom"); };
   const r = await runOne({ id: "s", prompt: "x" }, { spawnImpl: throwingSpawn });
@@ -203,4 +252,5 @@ test("TOOLS expose dispatch/code_search/research with input schemas", () => {
     assert.equal(t.inputSchema.type, "object");
     assert.ok(t.description.length > 0);
   }
+  assert.deepEqual(TOOLS[0].inputSchema.properties.tasks.items.properties.permissionProfile.enum, ["safe", "balanced", "full", "none"]);
 });

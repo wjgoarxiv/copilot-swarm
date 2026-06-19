@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -9,6 +9,8 @@ import { evaluate, isComplete } from "../runtime/src/oracle.mjs";
 import { classifySteering } from "../runtime/src/steering.mjs";
 import * as rt from "../runtime/src/runtime.mjs";
 import { main } from "../bin/csw-runtime.mjs";
+
+const SECRET = "ghp_" + "A".repeat(36);
 
 const tmp = () => mkdtempSync(join(tmpdir(), "csw-rt-"));
 const BLOCK = [
@@ -191,6 +193,37 @@ test("runtime: clearGoal removes state and logs goal_cleared", () => {
   }
 });
 
+test("runtime: redacts secret-like objective, evidence, blockers, and steering text", () => {
+  const cwd = tmp();
+  try {
+    rt.initGoal({ objective: `ship with ${SECRET}`, criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
+    rt.captureEvidence({ id: "C001", evidence: `Bearer ${"B".repeat(24)}` }, cwd);
+    rt.addBlocker({ id: "b1", reason: `password=${"p".repeat(10)}` }, cwd);
+    rt.steer({ text: `skip tests token=${SECRET}` }, cwd);
+    const state = readFileSync(join(cwd, ".csw/state.json"), "utf8");
+    const ledger = readFileSync(join(cwd, ".csw/ledger.jsonl"), "utf8");
+    assert.doesNotMatch(state, new RegExp(SECRET));
+    assert.doesNotMatch(ledger, new RegExp(SECRET));
+    assert.match(state, /REDACTED/);
+    assert.match(ledger, /REDACTED/);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("runtime: state and ledger are private on POSIX", () => {
+  const cwd = tmp();
+  try {
+    rt.initGoal({ objective: "x", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
+    const mode = (p) => statSync(p).mode & 0o777;
+    assert.equal(mode(join(cwd, ".csw")), 0o700);
+    assert.equal(mode(join(cwd, ".csw/state.json")), 0o600);
+    assert.equal(mode(join(cwd, ".csw/ledger.jsonl")), 0o600);
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 // --- CLI ---
 test("CLI main: init/status/evidence/complete exit codes", () => {
   const cwd = tmp();
@@ -213,6 +246,8 @@ test("CLI main: steer refusal returns exit 3; usage error returns 2", () => {
     assert.equal(main(["bogus"], cwd), 2);
     // missing-value flags are usage errors, not silent acceptance / evidence bypass
     assert.equal(main(["evidence", "--id", "C001", "--evidence"], cwd), 2);
+    assert.equal(main(["blocker", "add", "--id", "b1", "--reason"], cwd), 2);
+    assert.equal(main(["blocker", "resolve", "--id"], cwd), 2);
     assert.equal(main(["steer"], cwd), 2);
   } finally {
     rmSync(cwd, { recursive: true, force: true });

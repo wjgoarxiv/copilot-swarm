@@ -54,18 +54,33 @@
 
 ```sh
 npm install -g copilot-swarm    # (after publish) — or see "From source" below
-csw install                     # registers the plugin with Copilot CLI
+csw install --permission-profile safe  # registers the plugin with least-privilege MCP tools
 csw status                      # verify
 copilot                         # start a session — CSW is active
 ```
+
+One-shot install after publish:
+
+```sh
+npx --yes copilot-swarm@0.1.1 install --permission-profile safe
+npx --yes copilot-swarm@0.1.1 install --dry-run --permission-profile balanced
+```
+
+Permission profiles are applied to CSW's generated MCP configuration and worker
+flags without overwriting existing user OpenCode/Copilot permission settings. Use
+`safe` for read-mostly operation, `balanced` for recommended operation, `none` to
+install files without generated permission-profile settings, and `full` only when
+you explicitly accept broad worker access (`--allow-all-tools`). See
+[`docs/permission-profiles.md`](docs/permission-profiles.md).
 
 ### From source (before npm publish)
 
 ```sh
 git clone https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
-npm pack                                    # build copilot-swarm-0.1.0.tgz
-npm install -g ./copilot-swarm-0.1.0.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
-csw install
+npm pack                                    # build copilot-swarm-0.1.1.tgz
+npm install -g ./copilot-swarm-0.1.1.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
+csw install --dry-run --permission-profile safe
+csw install --permission-profile safe
 ```
 
 ## Usage
@@ -106,12 +121,15 @@ csw hud      # prints the snippet to add to ~/.copilot/settings.json
 
 See [`docs/supporting-components.md`](docs/supporting-components.md) for the
 port / keep-native / skip decisions (e.g. LSP stays native).
+See [`docs/permission-profiles.md`](docs/permission-profiles.md) for install-time
+permission profiles and MCP/tool implications.
 
 ## Development
 
 ```sh
 npm test            # unit + e2e tests (Node test runner)
 npm run scan        # forbidden-token cleanliness scan (all surfaces)
+npm run release:check
 npm run pack:dry-run
 python3 generate_cover.py   # regenerate the cover image
 ```

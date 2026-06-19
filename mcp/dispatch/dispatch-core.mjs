@@ -6,6 +6,7 @@
 // stdio server (server.mjs) is a thin transport over it.
 
 import { spawn } from "node:child_process";
+import { redactText, safeMode, workerEnv } from "../../runtime/src/redact.mjs";
 
 /** The conductor doctrine reminder attached to every dispatch result. */
 export const DISTRUST_GUIDANCE =
@@ -26,7 +27,10 @@ const HARD_CONCURRENCY_CAP = 16;
 // plugin (and its dispatch MCP), so an unbounded chain of re-dispatch would blow
 // up process/cost exponentially. Each worker runs at depth+1; by default workers
 // may NOT re-dispatch (max depth 1). Override with CSW_DISPATCH_MAX_DEPTH.
-export const currentDepth = () => Number(process.env.CSW_DISPATCH_DEPTH || 0);
+export const currentDepth = () => {
+  const n = Number(process.env.CSW_DISPATCH_DEPTH || 0);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
 const maxDepth = () => {
   const n = Number(process.env.CSW_DISPATCH_MAX_DEPTH);
   return Number.isFinite(n) && n >= 0 ? n : 1;
@@ -41,6 +45,36 @@ const RESEARCH_PREAMBLE =
 
 /** Built-in worker roster (shipped as copilot-swarm:* custom agents). */
 export const ROSTER = ["explorer", "researcher", "planner", "gap-analyst", "plan-reviewer", "verifier"];
+
+export const PERMISSION_PROFILES = {
+  safe: {
+    workerArgs: ["--deny-tool", "write"],
+    tools: ["code_search", "research"],
+    summary: "least privilege/read-mostly; dispatch is not exposed through generated MCP config",
+  },
+  balanced: {
+    workerArgs: [],
+    tools: ["dispatch", "code_search", "research"],
+    summary: "recommended; no broad --allow-all-tools grant for mutating workers",
+  },
+  full: {
+    workerArgs: ["--allow-all-tools"],
+    tools: ["dispatch", "code_search", "research"],
+    summary: "broad worker tool access; use only when explicitly trusted",
+  },
+  none: {
+    workerArgs: [],
+    tools: ["dispatch", "code_search", "research"],
+    summary: "do not write CSW permission profile settings",
+  },
+};
+
+export function normalizePermissionProfile(profile = process.env.CSW_PERMISSION_PROFILE || "balanced") {
+  const p = String(profile || "balanced").toLowerCase();
+  if (p === "custom") throw new Error("permission profile 'custom' is not implemented yet; use safe, balanced, full, or none");
+  if (!PERMISSION_PROFILES[p]) throw new Error(`invalid permission profile: ${profile}`);
+  return p;
+}
 
 /**
  * Resolve an agent name to what `copilot --agent` expects. Plugin agents are
@@ -61,10 +95,12 @@ export function buildArgs(task) {
   if (mode === "read_only") prompt = READ_ONLY_PREAMBLE + prompt;
   else if (mode === "research") prompt = RESEARCH_PREAMBLE + prompt;
 
-  const args = ["-p", prompt, "--allow-all-tools"];
+  const profile = normalizePermissionProfile(task.permissionProfile);
+  const args = ["-p", prompt];
+  args.push(...PERMISSION_PROFILES[profile].workerArgs);
   if (mode === "read_only" || mode === "research") {
     // Constrain workers away from mutation. Tool names per Copilot CLI permission model.
-    args.push("--deny-tool", "write");
+    if (!args.includes("--deny-tool")) args.push("--deny-tool", "write");
   }
   if (task.model) args.push("--model", String(task.model));
   if (task.agent) args.push("--agent", resolveAgent(String(task.agent)));
@@ -85,7 +121,7 @@ export function runOne(task, { spawnImpl = spawn, timeoutMs = DEFAULT_TIMEOUT_MS
     const started = now();
     let child;
     try {
-      child = spawnImpl(workerCommand(), args, { stdio: ["ignore", "pipe", "pipe"], env: env || process.env });
+      child = spawnImpl(workerCommand(), args, { stdio: ["ignore", "pipe", "pipe"], env: workerEnv(env || process.env, env?.CSW_DISPATCH_DEPTH ?? currentDepth() + 1) });
     } catch (err) {
       // Defensive: real spawn emits 'error' rather than throwing, but a custom
       // spawnImpl or exotic failure must not break batch failure-isolation.
@@ -103,17 +139,17 @@ export function runOne(task, { spawnImpl = spawn, timeoutMs = DEFAULT_TIMEOUT_MS
     };
     const timer = setTimeout(() => {
       try { child.kill("SIGKILL"); } catch {}
-      finish({ id: task.id ?? null, ok: false, exitCode: null, output: out, error: `timeout after ${timeoutMs}ms`, durationMs: now() - started });
+      finish({ id: task.id ?? null, ok: false, exitCode: null, output: redactText(out), error: `timeout after ${timeoutMs}ms`, durationMs: now() - started });
     }, timeoutMs);
     child.stdout?.on("data", (d) => { out += d.toString(); });
     child.stderr?.on("data", (d) => { err += d.toString(); });
-    child.on("error", (e) => finish({ id: task.id ?? null, ok: false, exitCode: null, output: out, error: e.message, durationMs: now() - started }));
+    child.on("error", (e) => finish({ id: task.id ?? null, ok: false, exitCode: null, output: redactText(out), error: redactText(e.message), durationMs: now() - started }));
     child.on("close", (code) => finish({
       id: task.id ?? null,
       ok: code === 0,
       exitCode: code,
-      output: out.trim(),
-      error: code === 0 ? null : (err.trim() || `exited with code ${code}`),
+      output: redactText(out.trim()),
+      error: code === 0 ? null : redactText(err.trim() || `exited with code ${code}`),
       durationMs: now() - started,
     }));
   });
@@ -140,6 +176,7 @@ async function withConcurrency(thunks, limit) {
  * @returns { results, guidance, summary }
  */
 export async function runDispatch({ tasks, maxConcurrency } = {}, deps = {}) {
+  if (safeMode()) throw new Error("dispatch disabled by CSW_SAFE_MODE");
   if (!Array.isArray(tasks) || tasks.length === 0) {
     throw new Error("'tasks' must be a non-empty array");
   }
@@ -151,8 +188,9 @@ export async function runDispatch({ tasks, maxConcurrency } = {}, deps = {}) {
     );
   }
   const limit = Math.max(1, Math.min(Number(maxConcurrency) || DEFAULT_MAX_CONCURRENCY, HARD_CONCURRENCY_CAP));
-  const normalized = tasks.map((t, i) => ({ ...t, id: t.id ?? `task-${i + 1}` }));
-  const childEnv = { ...process.env, CSW_DISPATCH_DEPTH: String(depth + 1) };
+  const inheritedProfile = normalizePermissionProfile(process.env.CSW_PERMISSION_PROFILE || "balanced");
+  const normalized = tasks.map((t, i) => ({ ...t, permissionProfile: t.permissionProfile || inheritedProfile, id: t.id ?? `task-${i + 1}` }));
+  const childEnv = workerEnv(process.env, depth + 1);
   const results = await withConcurrency(
     normalized.map((t) => () => runOne(t, { env: childEnv, ...deps })),
     limit,
@@ -186,6 +224,7 @@ export const TOOLS = [
               id: { type: "string", description: "Optional stable id for the task." },
               prompt: { type: "string", description: "Self-contained task instructions (goal, scope, how the result is verified)." },
               mode: { type: "string", enum: ["default", "read_only", "research"], description: "default mutates; read_only/research deny file writes." },
+              permissionProfile: { type: "string", enum: ["safe", "balanced", "full", "none"], description: "CSW worker permission profile. 'full' is the only profile that grants --allow-all-tools." },
               model: { type: "string", description: "Optional model id for this worker." },
               agent: { type: "string", description: "Optional custom agent name for this worker." },
             },
@@ -207,6 +246,7 @@ export const TOOLS = [
       properties: {
         queries: { type: "array", minItems: 1, items: { type: "string" }, description: "What to find / investigate." },
         model: { type: "string" },
+        permissionProfile: { type: "string", enum: ["safe", "balanced", "full", "none"], description: "CSW worker permission profile. Read-only mode still denies write." },
         maxConcurrency: { type: "number" },
       },
       required: ["queries"],
@@ -222,6 +262,7 @@ export const TOOLS = [
       properties: {
         queries: { type: "array", minItems: 1, items: { type: "string" }, description: "Research questions." },
         model: { type: "string" },
+        permissionProfile: { type: "string", enum: ["safe", "balanced", "full", "none"], description: "CSW worker permission profile. Research mode still denies write." },
         maxConcurrency: { type: "number" },
       },
       required: ["queries"],
@@ -240,7 +281,7 @@ export function toDispatchInput(toolName, args = {}) {
       throw new Error("'queries' must be a non-empty array");
     }
     return {
-      tasks: args.queries.map((q, i) => ({ id: `${toolName}-${i + 1}`, prompt: String(q), mode, model: args.model })),
+        tasks: args.queries.map((q, i) => ({ id: `${toolName}-${i + 1}`, prompt: String(q), mode, model: args.model, permissionProfile: args.permissionProfile })),
       maxConcurrency: args.maxConcurrency,
     };
   }

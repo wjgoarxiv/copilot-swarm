@@ -15,6 +15,7 @@ import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { classifySteering } from "../runtime/src/steering.mjs";
 import { loadState, appendLedger } from "../runtime/src/store.mjs";
+import { safeMode } from "../runtime/src/redact.mjs";
 import { readStdin } from "./lib/read-stdin.mjs";
 
 /** Pure: refusal guidance for a prompt, or null if it is not weakening. Exported for tests. */
@@ -34,6 +35,7 @@ async function main() {
   try { payload = JSON.parse((await readStdin()) || "{}"); } catch { payload = {}; }
   const prompt = payload.prompt || payload.userPrompt || "";
   const cwd = payload.cwd || process.cwd();
+  if (safeMode()) process.exit(0);
   const g = guidance(prompt);
   if (g) {
     try { if (loadState(cwd)) appendLedger({ kind: "steering_flagged", text: String(prompt).slice(0, 200) }, cwd); } catch {}

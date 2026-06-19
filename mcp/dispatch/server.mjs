@@ -5,10 +5,16 @@
 // delimited JSON-RPC 2.0) to expose the swarm dispatch tools. No external
 // runtime dependencies (the MCP SDK is intentionally NOT used).
 
-import { runDispatch, toDispatchInput, TOOLS } from "./dispatch-core.mjs";
+import { runDispatch, toDispatchInput, TOOLS, PERMISSION_PROFILES, normalizePermissionProfile } from "./dispatch-core.mjs";
+import { redactText } from "../../runtime/src/redact.mjs";
 
-const SERVER_INFO = { name: "csw-dispatch", version: "0.1.0" };
+export const SERVER_INFO = { name: "csw-dispatch", version: "0.1.1" };
 const SUPPORTED_PROTOCOL = "2024-11-05";
+
+function applyArgProfile(argv = process.argv.slice(2), env = process.env) {
+  const i = argv.indexOf("--permission-profile");
+  if (i !== -1 && argv[i + 1]) env.CSW_PERMISSION_PROFILE = argv[i + 1];
+}
 
 function rpcResult(id, result) {
   return { jsonrpc: "2.0", id, result };
@@ -43,11 +49,12 @@ export async function handleMessage(msg, deps = {}) {
     case "ping":
       return isNotification ? null : rpcResult(msg.id, {});
     case "tools/list":
-      return rpcResult(msg.id, { tools: TOOLS });
+      return rpcResult(msg.id, { tools: TOOLS.filter((t) => PERMISSION_PROFILES[normalizePermissionProfile()].tools.includes(t.name)) });
     case "tools/call": {
       const name = msg.params?.name;
       const args = msg.params?.arguments ?? {};
       try {
+        if (!PERMISSION_PROFILES[normalizePermissionProfile()].tools.includes(name)) throw new Error(`tool disabled by permission profile: ${name}`);
         const input = toDispatchInput(name, args);
         const output = await runDispatch(input, deps);
         return rpcResult(msg.id, {
@@ -55,13 +62,13 @@ export async function handleMessage(msg, deps = {}) {
         });
       } catch (err) {
         return rpcResult(msg.id, {
-          content: [{ type: "text", text: `dispatch error: ${err.message}` }],
+          content: [{ type: "text", text: `dispatch error: ${redactText(err.message)}` }],
           isError: true,
         });
       }
     }
     default:
-      return isNotification ? null : rpcError(msg.id, -32601, `Method not found: ${msg.method}`);
+      return isNotification ? null : rpcError(msg.id, -32601, `Method not found: ${redactText(msg.method)}`);
   }
 }
 
@@ -71,6 +78,9 @@ function writeMessage(obj) {
 
 function runLoop() {
   let buffer = "";
+  let pending = 0;
+  let ended = false;
+  const maybeExit = () => { if (ended && pending === 0) process.exit(0); };
   process.stdin.setEncoding("utf8");
   process.stdin.on("data", (chunk) => {
     buffer += chunk;
@@ -87,14 +97,19 @@ function runLoop() {
         continue;
       }
       const id = msg && typeof msg === "object" ? msg.id : undefined;
+      pending++;
       handleMessage(msg)
         .then((res) => { if (res) writeMessage(res); })
         .catch((err) => {
-          if (id !== undefined) writeMessage(rpcError(id, -32603, `Internal error: ${err.message}`));
+          if (id !== undefined) writeMessage(rpcError(id, -32603, `Internal error: ${redactText(err.message)}`));
+        })
+        .finally(() => {
+          pending--;
+          maybeExit();
         });
     }
   });
-  process.stdin.on("end", () => process.exit(0));
+  process.stdin.on("end", () => { ended = true; maybeExit(); });
 }
 
 import { realpathSync } from "node:fs";
@@ -108,3 +123,4 @@ function isMainModule() {
   }
 }
 if (isMainModule()) runLoop();
+applyArgProfile();

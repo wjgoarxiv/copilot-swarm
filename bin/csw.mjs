@@ -9,7 +9,7 @@
 // Options: --theme <violet|ocean|mono>, --no-color
 
 import { execFileSync } from "node:child_process";
-import { realpathSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { realpathSync, readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, closeSync, readSync, writeSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -28,6 +28,36 @@ const THEMES = {
 const RESET = "\x1b[0m";
 const OK = "\x1b[32m✓\x1b[0m";
 const NO = "\x1b[31m✗\x1b[0m";
+
+export const PERMISSION_PROFILES = {
+  safe: {
+    tools: ["code_search", "research"],
+    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "safe"],
+    warning: "least privilege/read-mostly; dispatch is not exposed in generated MCP config",
+  },
+  balanced: {
+    tools: ["dispatch", "code_search", "research"],
+    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "balanced"],
+    warning: "recommended; no broad --allow-all-tools grant unless a worker/tool asks interactively",
+  },
+  full: {
+    tools: ["dispatch", "code_search", "research"],
+    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "full"],
+    warning: "WARNING: broad worker tool access via --allow-all-tools for dispatch workers",
+  },
+  none: {
+    tools: ["dispatch", "code_search", "research"],
+    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs"],
+    warning: "do not modify CSW permission settings; install plugin files only",
+  },
+};
+
+export function normalizePermissionProfile(value) {
+  const p = String(value || "").toLowerCase();
+  if (p === "custom") throw new Error("permission profile 'custom' is future work; choose safe, balanced, full, or none");
+  if (!PERMISSION_PROFILES[p]) throw new Error(`invalid permission profile: ${value}`);
+  return p;
+}
 
 export function palette(themeName = "violet", color = true) {
   const t = THEMES[themeName] || THEMES.violet;
@@ -92,6 +122,69 @@ export function cleanPackedDir(pkgRoot = PKG_ROOT, exec = execFileSync, makeTmp 
   }
 }
 
+export function mcpConfigForProfile(profile, baseText = readFileSync(join(PKG_ROOT, ".mcp.json"), "utf8")) {
+  const p = normalizePermissionProfile(profile);
+  const config = JSON.parse(baseText);
+  const server = config.mcpServers?.["csw-dispatch"];
+  if (!server) throw new Error(".mcp.json missing csw-dispatch server");
+  server.args = [...PERMISSION_PROFILES[p].args];
+  server.tools = [...PERMISSION_PROFILES[p].tools];
+  return { profile: p, config };
+}
+
+export function applyPermissionProfileToPackage(packageDir, profile) {
+  const p = normalizePermissionProfile(profile);
+  if (p === "none") return { profile: p, path: join(packageDir, ".mcp.json"), written: false };
+  const target = join(packageDir, ".mcp.json");
+  const { config } = mcpConfigForProfile(p, readFileSync(target, "utf8"));
+  writeFileSync(target, JSON.stringify(config, null, 2) + "\n");
+  return { profile: p, path: target, written: true };
+}
+
+export function permissionPlan(profile, packageDir = "<clean package copy>") {
+  const p = normalizePermissionProfile(profile);
+  const where = join(packageDir, ".mcp.json");
+  const { config } = mcpConfigForProfile(p);
+  return [
+    `Permission profile: ${p}`,
+    `Profile details: ${PERMISSION_PROFILES[p].warning}`,
+    `Generated MCP config path: ${where}`,
+    `MCP tools: ${config.mcpServers["csw-dispatch"].tools.join(", ")}`,
+    `MCP args: ${config.mcpServers["csw-dispatch"].args.join(" ")}`,
+    `User Copilot/OpenCode config: preserved (CSW installer does not overwrite existing user permission settings)`,
+  ].join("\n");
+}
+
+function promptTTY() {
+  const menu = [
+    "Select CSW permission profile:",
+    "  1) safe     least privilege/read-mostly",
+    "  2) balanced recommended",
+    "  3) full     broad worker access (warning)",
+    "  4) none     do not modify CSW permission settings",
+    "custom profile: future work (not implemented)",
+    "Choice [safe]: ",
+  ].join("\n");
+  let fd;
+  try {
+    fd = openSync("/dev/tty", "r+");
+    writeSync(fd, menu);
+    const buf = Buffer.alloc(64);
+    const n = readSync(fd, buf, 0, buf.length, null);
+    const answer = buf.toString("utf8", 0, n).trim().toLowerCase();
+    return { "": "safe", "1": "safe", safe: "safe", "2": "balanced", balanced: "balanced", "3": "full", full: "full", "4": "none", none: "none" }[answer] || answer;
+  } finally {
+    if (fd !== undefined) try { closeSync(fd); } catch {}
+  }
+}
+
+export function selectPermissionProfile({ explicit, env = process.env, isTTY = process.stdin.isTTY, prompt = promptTTY } = {}) {
+  if (explicit) return normalizePermissionProfile(explicit);
+  if (env.CSW_PERMISSION_PROFILE) return normalizePermissionProfile(env.CSW_PERMISSION_PROFILE);
+  if (isTTY) return normalizePermissionProfile(prompt());
+  return "safe";
+}
+
 function defaultRun(cmd) {
   try {
     return { ok: true, out: execFileSync(cmd[0], cmd.slice(1), { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }) };
@@ -101,11 +194,14 @@ function defaultRun(cmd) {
 }
 
 export function parse(argv) {
-  const a = { cmd: "status", theme: "violet", color: true };
+  const a = { cmd: "status", theme: "violet", color: true, dryRun: false, permissionProfile: null };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
-    if (t === "--theme") a.theme = argv[++i];
+    if (t === "--help" || t === "-h") a.cmd = "help";
+    else if (t === "--theme") a.theme = argv[++i];
     else if (t === "--no-color") a.color = false;
+    else if (t === "--dry-run") a.dryRun = true;
+    else if (t === "--permission-profile") a.permissionProfile = argv[++i];
     else if (!t.startsWith("-")) a.cmd = t;
   }
   if (!THEMES[a.theme]) a.theme = "violet";
@@ -119,6 +215,10 @@ const USAGE = `csw — Copilot-swarm
   csw doctor     environment diagnostics (JSON)
   csw hud        print the settings snippet to enable the HUD status line
   csw help       this message
+
+Install options:
+  --dry-run
+  --permission-profile <safe|balanced|full|none>  (custom: future work)
 
 Options: --theme <violet|ocean|mono>  --no-color`;
 
@@ -138,6 +238,18 @@ export function main(argv) {
   if (a.cmd === "install") {
     const mark = color ? OK : "[ok]";
     const fail = color ? NO : "[--]";
+    let profile;
+    try {
+      profile = selectPermissionProfile({ explicit: a.permissionProfile });
+    } catch (err) {
+      console.error(`${fail} ${err.message}`);
+      return 2;
+    }
+    if (a.dryRun) {
+      console.log(permissionPlan(profile));
+      console.log("Dry run: no files written and copilot plugin install was not run.");
+      return 0;
+    }
     const d = doctor();
     if (!d.copilot) { console.error(`${fail} GitHub Copilot CLI not found. Install it first.`); return 1; }
     console.log("Packing a clean copy (allowlisted files only) …");
@@ -149,6 +261,10 @@ export function main(argv) {
       return 1;
     }
     try {
+      const applied = applyPermissionProfileToPackage(packed.dir, profile);
+      console.log(permissionPlan(profile, packed.dir));
+      if (applied.written) console.log(`Permission profile written: ${applied.path}`);
+      else console.log("Permission profile write skipped by profile 'none'.");
       execFileSync("copilot", ["plugin", "install", packed.dir], { stdio: "inherit" });
       console.log(`${mark} Installed. Start a session: copilot`);
       return 0;

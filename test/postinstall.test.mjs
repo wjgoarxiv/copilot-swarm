@@ -9,17 +9,18 @@ import { scanText } from "../scripts/scanner-core.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SCRIPT = join(repoRoot, "scripts/postinstall.mjs");
+const packageVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
 
 test("renderInstallBanner: contains wordmark, product, version, next steps", () => {
-  const b = renderInstallBanner(true, "0.1.0");
+  const b = renderInstallBanner(true, packageVersion);
   assert.match(b, /copilot-swarm/);
-  assert.match(b, /v0\.1\.0/);
+  assert.match(b, new RegExp(`v${packageVersion.replaceAll(".", "\\.")}`));
   assert.match(b, /csw install/);
   assert.ok(b.includes("\x1b["), "colored variant has ANSI");
 });
 
 test("renderInstallBanner: plain (no-color) has no ANSI", () => {
-  const b = renderInstallBanner(false, "0.1.0");
+  const b = renderInstallBanner(false, packageVersion);
   assert.ok(!b.includes("\x1b["));
   assert.match(b, /copilot-swarm/);
 });

@@ -70,4 +70,5 @@ test(".mcp.json registers csw-dispatch pointing at the bundled server", () => {
   assert.ok(srv, "csw-dispatch server must be registered");
   assert.equal(srv.command, "node");
   assert.ok(srv.args.some((a) => a.includes("mcp/dispatch/server.mjs")), "must point at server.mjs");
+  assert.deepEqual(srv.tools, ["dispatch", "code_search", "research"]);
 });

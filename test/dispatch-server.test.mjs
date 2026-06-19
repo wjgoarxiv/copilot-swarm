@@ -37,6 +37,20 @@ test("tools/list returns the three swarm tools", async () => {
   assert.deepEqual(res.result.tools.map((t) => t.name), ["dispatch", "code_search", "research"]);
 });
 
+test("tools/list and tools/call honor safe permission profile", async () => {
+  const saved = process.env.CSW_PERMISSION_PROFILE;
+  process.env.CSW_PERMISSION_PROFILE = "safe";
+  try {
+    const list = await handleMessage({ jsonrpc: "2.0", id: 20, method: "tools/list" });
+    assert.deepEqual(list.result.tools.map((t) => t.name), ["code_search", "research"]);
+    const dispatch = await handleMessage({ jsonrpc: "2.0", id: 21, method: "tools/call", params: { name: "dispatch", arguments: { tasks: [{ prompt: "x" }] } } });
+    assert.equal(dispatch.result.isError, true);
+    assert.match(dispatch.result.content[0].text, /disabled by permission profile/);
+  } finally {
+    if (saved === undefined) delete process.env.CSW_PERMISSION_PROFILE; else process.env.CSW_PERMISSION_PROFILE = saved;
+  }
+});
+
 test("notifications/initialized produces no reply", async () => {
   assert.equal(await handleMessage({ jsonrpc: "2.0", method: "notifications/initialized" }), null);
 });
@@ -44,6 +58,14 @@ test("notifications/initialized produces no reply", async () => {
 test("unknown method with id returns method-not-found", async () => {
   const res = await handleMessage({ jsonrpc: "2.0", id: 3, method: "bogus" });
   assert.equal(res.error.code, -32601);
+});
+
+test("protocol and dispatch errors redact secret-like request strings", async () => {
+  const secret = "ghp_" + "A".repeat(36);
+  const missing = await handleMessage({ jsonrpc: "2.0", id: 33, method: `bogus-${secret}` });
+  assert.doesNotMatch(missing.error.message, new RegExp(secret));
+  const tool = await handleMessage({ jsonrpc: "2.0", id: 34, method: "tools/call", params: { name: `nope-${secret}`, arguments: {} } });
+  assert.doesNotMatch(tool.result.content[0].text, new RegExp(secret));
 });
 
 test("invalid request shape returns invalid-request when it has an id", async () => {
@@ -66,6 +88,17 @@ test("tools/call dispatch returns content with results (mocked worker)", async (
   const text = res.result.content[0].text;
   assert.match(text, /worker-said-hi/);
   assert.match(text, /summary/);
+});
+
+test("tools/call redacts worker output in MCP content", async () => {
+  const secret = "ghp_" + "A".repeat(36);
+  const res = await handleMessage(
+    { jsonrpc: "2.0", id: 55, method: "tools/call", params: { name: "dispatch", arguments: { tasks: [{ prompt: "x" }] } } },
+    { spawnImpl: fakeSpawn({ stdout: `worker ${secret}` }) },
+  );
+  const text = res.result.content[0].text;
+  assert.doesNotMatch(text, new RegExp(secret));
+  assert.match(text, /REDACTED/);
 });
 
 test("tools/call with bad args returns isError content (not a crash)", async () => {
@@ -125,6 +158,26 @@ test("e2e: server speaks newline-delimited JSON-RPC over stdio", async () => {
     assert.equal(byId[1].result.serverInfo.name, "csw-dispatch");
     assert.equal(byId[2].result.tools.length, 3);
     assert.match(byId[3].result.content[0].text, /FAKE_WORKER_DONE/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("e2e: server drains pending tools/call before exiting on stdin end", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "csw-srv-drain-"));
+  try {
+    const worker = join(dir, "fake-worker.mjs");
+    writeFileSync(worker, "#!/usr/bin/env node\nsetTimeout(() => process.stdout.write('DRAINED_WORKER'), 25);\n");
+    chmodSync(worker, 0o755);
+    const server = join(repoRoot, "mcp/dispatch/server.mjs");
+    const child = spawn(process.execPath, [server], { env: { ...process.env, CSW_DISPATCH_CMD: worker }, stdio: ["pipe", "pipe", "pipe"] });
+    let out = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "code_search", arguments: { queries: ["x"] } } }) + "\n");
+    child.stdin.end();
+    const code = await new Promise((resolve) => child.on("close", resolve));
+    assert.equal(code, 0);
+    assert.match(out, /DRAINED_WORKER/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

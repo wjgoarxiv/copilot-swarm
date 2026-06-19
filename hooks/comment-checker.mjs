@@ -10,6 +10,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { readStdin } from "./lib/read-stdin.mjs";
+import { safeMode, sanitizeLine } from "../runtime/src/redact.mjs";
 
 const EDIT_TOOLS = /^(create|write|edit|str[_-]?replace([_-]editor)?|multi[_-]?edit|apply[_-]?patch)$/i;
 const CONTENT_KEYS = ["file_text", "content", "new_str", "new_string", "text", "new"];
@@ -48,7 +49,7 @@ export function analyze(content) {
     const body = (line.match(COMMENT_BODY)?.[2] || "").trim();
     // Only flag short, clause-free narration; longer or intent-bearing comments pass.
     if (body.length > 50 || INTENT.test(body)) return;
-    hits.push({ line: i + 1, text: line.trim().slice(0, 80) });
+    hits.push({ line: i + 1, text: sanitizeLine(line, 80) });
   });
   return { flagged: hits.length > 0, hits };
 }
@@ -81,6 +82,7 @@ export function reminderFor(payload) {
 async function main() {
   let payload = {};
   try { payload = JSON.parse((await readStdin()) || "{}"); } catch { payload = {}; }
+  if (safeMode()) process.exit(0);
   const reminder = reminderFor(payload);
   if (reminder) process.stdout.write(JSON.stringify({ additionalContext: reminder }) + "\n");
   process.exit(0);

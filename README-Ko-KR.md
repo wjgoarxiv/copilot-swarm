@@ -48,18 +48,32 @@
 
 ```sh
 npm install -g copilot-swarm    # (publish 이후) — 또는 아래 "소스에서 설치"
-csw install                     # Copilot CLI에 플러그인 등록
+csw install --permission-profile safe  # 최소 권한 MCP 도구로 플러그인 등록
 csw status                      # 확인
 copilot                         # 세션 시작 — CSW 활성화됨
 ```
+
+publish 이후 원샷 설치:
+
+```sh
+npx --yes copilot-swarm@0.1.1 install --permission-profile safe
+npx --yes copilot-swarm@0.1.1 install --dry-run --permission-profile balanced
+```
+
+권한 프로필은 기존 사용자 OpenCode/Copilot 권한 설정을 덮어쓰지 않고 CSW가
+생성하는 MCP 설정과 worker 플래그에만 적용됩니다. `safe`는 read-mostly,
+`balanced`는 권장 동작, `none`은 권한 프로필 설정 없이 파일만 설치,
+`full`은 `--allow-all-tools` 기반의 넓은 worker 권한을 명시적으로 허용할 때만
+사용하세요. 자세한 내용은 [`docs/permission-profiles.md`](docs/permission-profiles.md)를 참고하세요.
 
 ### 소스에서 설치 (npm publish 이전)
 
 ```sh
 git clone https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
-npm pack                                    # copilot-swarm-0.1.0.tgz 생성
-npm install -g ./copilot-swarm-0.1.0.tgz    # clean copy (`npm i -g .` 는 dev 트리를 심링크하므로 비권장)
-csw install
+npm pack                                    # copilot-swarm-0.1.1.tgz 생성
+npm install -g ./copilot-swarm-0.1.1.tgz    # clean copy (`npm i -g .` 는 dev 트리를 심링크하므로 비권장)
+csw install --dry-run --permission-profile safe
+csw install --permission-profile safe
 ```
 
 ## 사용법
@@ -99,12 +113,14 @@ csw hud      # ~/.copilot/settings.json 에 추가할 스니펫 출력
 
 port / keep-native / skip 결정은 [`docs/supporting-components.md`](docs/supporting-components.md)
 참고 (예: LSP는 네이티브 유지).
+설치 시 권한 프로필과 MCP/tool 영향은 [`docs/permission-profiles.md`](docs/permission-profiles.md)를 참고하세요.
 
 ## 개발
 
 ```sh
 npm test            # 단위 + e2e 테스트
 npm run scan        # 금지어 cleanliness 스캔 (전 표면)
+npm run release:check
 npm run pack:dry-run
 python3 generate_cover.py   # 커버 이미지 재생성
 ```

@@ -4,8 +4,9 @@
 // surface). `state.json` is the current goal; `ledger.jsonl` is an append-only
 // audit log. Writes are atomic (temp file + rename).
 
-import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync, rmSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync, appendFileSync, rmSync, chmodSync } from "node:fs";
 import { join } from "node:path";
+import { redactObject } from "./redact.mjs";
 
 export function cswDir(cwd = process.cwd()) {
   // CSW_HOME is a test/advanced override. Do NOT set it globally (e.g. in a shell
@@ -29,17 +30,22 @@ export function loadState(cwd) {
 
 export function saveState(state, cwd) {
   const dir = cswDir(cwd);
-  mkdirSync(dir, { recursive: true });
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { chmodSync(dir, 0o700); } catch {}
   const p = statePath(cwd);
   const tmp = `${p}.tmp`;
-  writeFileSync(tmp, JSON.stringify(state, null, 2));
+  writeFileSync(tmp, JSON.stringify(redactObject(state), null, 2), { mode: 0o600 });
   renameSync(tmp, p);
+  try { chmodSync(p, 0o600); } catch {}
   return p;
 }
 
 /** Append one ledger entry (atomic append). `at` is injectable for determinism. */
 export function appendLedger(entry, cwd, { at = new Date().toISOString() } = {}) {
   const dir = cswDir(cwd);
-  mkdirSync(dir, { recursive: true });
-  appendFileSync(ledgerPath(cwd), JSON.stringify({ at, ...entry }) + "\n");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  try { chmodSync(dir, 0o700); } catch {}
+  const p = ledgerPath(cwd);
+  appendFileSync(p, JSON.stringify(redactObject({ at, ...entry })) + "\n", { mode: 0o600 });
+  try { chmodSync(p, 0o600); } catch {}
 }

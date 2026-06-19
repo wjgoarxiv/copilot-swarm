@@ -42,6 +42,15 @@ test("reminderFor: builds a reminder for an edit tool with slop comments", () =>
   assert.match(r, /explain WHY/);
 });
 
+test("reminderFor: redacts snippets and supports toolArguments shape", () => {
+  const secret = "Bearer " + "A".repeat(12);
+  const payload = { toolName: "write", toolArguments: { content: `// return result ${secret}\nreturn x;` } };
+  const r = reminderFor(payload);
+  assert.match(r, /line 1/);
+  assert.doesNotMatch(r, new RegExp(secret));
+  assert.match(r, /REDACTED/);
+});
+
 test("reminderFor: null for non-edit tools and clean edits", () => {
   assert.equal(reminderFor({ toolName: "shell", toolArgs: "{}" }), null);
   assert.equal(reminderFor({ toolName: "create", toolArgs: JSON.stringify({ path: "a.js", file_text: "let x=1;" }) }), null);

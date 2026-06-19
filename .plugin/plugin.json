@@ -1,6 +1,6 @@
 {
   "name": "copilot-swarm",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Parallel task delegation and an evidence-gated plan/execute/review workflow for the GitHub Copilot CLI.",
   "author": { "name": "Copilot-swarm contributors" },
   "license": "MIT",

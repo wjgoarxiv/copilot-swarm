@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +11,7 @@ import * as rt from "../runtime/src/runtime.mjs";
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const HOOK = join(repoRoot, "hooks/continuation.mjs");
 const tmp = () => mkdtempSync(join(tmpdir(), "csw-hook-"));
+const SECRET = "github_pat_" + "A".repeat(32);
 
 // --- decide() pure logic ---
 test("decide: no goal -> no block", () => {
@@ -33,6 +34,25 @@ test("decide: empty/invalid criteria never blocks (no livelock)", () => {
   assert.equal(decide({ objective: "g", completed: false, criteria: [] }).block, false);
   assert.equal(decide({ objective: "g", completed: false }).block, false); // missing criteria
   assert.equal(decide({ objective: "g", completed: false, criteria: "oops" }).block, false);
+});
+
+test("decide: safe mode and stale states fail open", () => {
+  const state = { objective: "g", completed: false, updatedAt: "2000-01-01T00:00:00.000Z", criteria: [{ id: "C001", status: "pending", evidence: null }] };
+  assert.equal(decide(state, { safeMode: true }).block, false);
+  assert.equal(decide(state, { now: Date.parse("2026-01-01T00:00:00.000Z") }).block, false);
+});
+
+test("decide: redacts secret-like objective and blocker reasons", () => {
+  const d = decide({
+    objective: `leak ${SECRET}`,
+    completed: false,
+    updatedAt: new Date().toISOString(),
+    criteria: [{ id: "C001", status: "pass", evidence: "ok" }],
+    reviewBlockers: [{ id: "b1", reason: `token=${SECRET}`, resolved: false }],
+  });
+  assert.equal(d.block, true);
+  assert.doesNotMatch(d.reason, new RegExp(SECRET));
+  assert.match(d.reason, /REDACTED/);
 });
 
 // --- e2e: hook process reads payload + state, emits decision ---
@@ -95,6 +115,27 @@ test("e2e: no goal -> never blocks (opt-in)", async () => {
     const { code, out } = await runHook({ cwd });
     assert.equal(code, 0);
     assert.equal(out, "");
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("e2e: malformed state and safe mode fail open", async () => {
+  const cwd = tmp();
+  try {
+    mkdirSync(join(cwd, ".csw"), { recursive: true });
+    writeFileSync(join(cwd, ".csw/state.json"), "{not-json");
+    assert.equal((await runHook({ cwd })).out, "");
+
+    rt.initGoal({ objective: "demo", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
+    const child = spawn(process.execPath, [HOOK], { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, CSW_SAFE_MODE: "1" } });
+    let out = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stdin.write(JSON.stringify({ cwd }));
+    child.stdin.end();
+    const code = await new Promise((resolve) => child.on("close", resolve));
+    assert.equal(code, 0);
+    assert.equal(out.trim(), "");
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }

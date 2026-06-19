@@ -11,7 +11,7 @@ const V = (() => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "..");
     return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
   } catch {
-    return "0.1.0";
+    return "0.1.1";
   }
 })();
 

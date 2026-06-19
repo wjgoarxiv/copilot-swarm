@@ -4,7 +4,7 @@
       "type": "local",
       "command": "node",
       "args": ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs"],
-      "tools": ["*"]
+      "tools": ["dispatch", "code_search", "research"]
     }
   }
 }

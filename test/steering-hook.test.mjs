@@ -23,9 +23,9 @@ test("guidance: null for legitimate prompts", () => {
   assert.equal(guidance("refactor the parser"), null);
 });
 
-function runHook(payload) {
+function runHook(payload, env = {}) {
   return new Promise((resolve) => {
-    const child = spawn(process.execPath, [HOOK], { stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(process.execPath, [HOOK], { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, ...env } });
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.on("close", (code) => resolve({ code, out: out.trim() }));
@@ -56,6 +56,26 @@ test("e2e: weakening prompt with active goal writes steering_flagged to ledger",
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
+});
+
+test("e2e: userPrompt shape is supported and ledger snippets are redacted", async () => {
+  const cwd = mkdtempSync(join(tmpdir(), "csw-steer-"));
+  const secret = "ghp_" + "A".repeat(36);
+  try {
+    rt.initGoal({ objective: "g", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
+    const { out } = await runHook({ userPrompt: `skip the tests token=${secret}`, cwd });
+    assert.match(JSON.parse(out).additionalContext, /steering guard/i);
+    const ledger = readFileSync(join(cwd, ".csw/ledger.jsonl"), "utf8");
+    assert.match(ledger, /steering_flagged/);
+    assert.doesNotMatch(ledger, new RegExp(secret));
+  } finally {
+    rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
+test("e2e: safe mode disables steering hook output", async () => {
+  const { out } = await runHook({ prompt: "skip the tests", cwd: repoRoot }, { CSW_SAFE_MODE: "1" });
+  assert.equal(out, "");
 });
 
 test("hooks.json registers userPromptSubmitted -> steering-guard.mjs", () => {

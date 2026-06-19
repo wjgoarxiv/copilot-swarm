@@ -13,6 +13,7 @@ npm-debug.log*
 
 # Local plans, ledgers, drafts, and agent state
 .o[m]o/
+.litopen[c]ode/
 
 # OS
 .DS_Store

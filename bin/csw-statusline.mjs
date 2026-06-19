@@ -14,6 +14,7 @@
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { loadState } from "../runtime/src/store.mjs";
+import { sanitizeLine } from "../runtime/src/redact.mjs";
 
 /** Pure: render the HUD string from a goal state. Exported for tests. */
 export function render(state) {
@@ -30,7 +31,7 @@ export function render(state) {
     if (fail > 0) parts.push(`✗${fail}`);
   }
   if (openBlockers > 0) parts.push(`⛔ ${openBlockers} blocker${openBlockers > 1 ? "s" : ""}`);
-  const obj = String(state.objective || "").trim();
+  const obj = sanitizeLine(state.objective || "", 40);
   if (obj) parts.push(obj.length > 40 ? obj.slice(0, 39) + "…" : obj);
   return parts.join(" · ");
 }
