@@ -64,9 +64,9 @@
 > Requires the [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/copilot-cli)
 > and Node.js >= 20.
 
-The native-first implementation is versioned as `0.1.2` for GitHub source
+The native-first implementation is versioned as `0.1.3` for GitHub source
 distribution. The npm registry's `0.1.1` is the earlier implementation and does
-not contain this migration. Use the tagged source command below once `v0.1.2` is
+not contain this migration. Use the tagged source command below once `v0.1.3` is
 available.
 
 CSW does not generate host permissions. Before delegating investigation, use the
@@ -77,9 +77,9 @@ worktrees, then inspect their diffs before integration.
 ### From source (before npm publish)
 
 ```sh
-git clone --branch v0.1.2 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
-npm pack                                    # build copilot-swarm-0.1.2.tgz
-npm install -g ./copilot-swarm-0.1.2.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
+git clone --branch v0.1.3 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
+npm pack                                    # build copilot-swarm-0.1.3.tgz
+npm install -g ./copilot-swarm-0.1.3.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
 csw install --dry-run
 csw install
 ```

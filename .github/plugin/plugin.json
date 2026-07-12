@@ -1,6 +1,6 @@
 {
   "name": "copilot-swarm",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Evidence-gated software delivery governance for GitHub Copilot CLI, built on native task, fleet, and task-management surfaces.",
   "author": { "name": "Copilot-swarm contributors" },
   "license": "MIT",

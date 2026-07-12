@@ -60,8 +60,8 @@
 > [!TIP]
 > [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/copilot-cli)와 Node.js >= 20이 필요합니다.
 
-native-first 구현은 GitHub 소스 배포용 `0.1.2`로 버전이 지정되었습니다. npm 레지스트리의
-`0.1.1`은 이전 구현입니다. `v0.1.2` 태그가 제공되면 아래 설치 절차를 사용하세요.
+native-first 구현은 GitHub 소스 배포용 `0.1.3`으로 버전이 지정되었습니다. npm 레지스트리의
+`0.1.1`은 이전 구현입니다. `v0.1.3` 태그가 제공되면 아래 설치 절차를 사용하세요.
 
 CSW는 호스트 권한을 생성하지 않습니다. 조사 작업을 위임하기 전에 설치된 Copilot CLI의
 deny/사용 가능 도구 정책으로 변경 도구를 차단하세요. 에이전트 설명문은 보안 경계가 아닙니다.
@@ -70,9 +70,9 @@ deny/사용 가능 도구 정책으로 변경 도구를 차단하세요. 에이�
 ### 소스에서 설치 (npm publish 이전)
 
 ```sh
-git clone --branch v0.1.2 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
-npm pack                                    # copilot-swarm-0.1.2.tgz 생성
-npm install -g ./copilot-swarm-0.1.2.tgz    # clean copy (`npm i -g .` 는 dev 트리를 심링크하므로 비권장)
+git clone --branch v0.1.3 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
+npm pack                                    # copilot-swarm-0.1.3.tgz 생성
+npm install -g ./copilot-swarm-0.1.3.tgz    # clean copy (`npm i -g .` 는 dev 트리를 심링크하므로 비권장)
 csw install --dry-run
 csw install
 ```

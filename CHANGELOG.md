@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-12
+
+### Fixed
+- Linked the bundled `csw-plan` workflow reference from `SKILL.md` so Awesome
+  Copilot's orphan-file quality gate can verify that every shipped skill asset is
+  reachable.
+
 ## [0.1.2] - 2026-07-12
 
 ### Changed

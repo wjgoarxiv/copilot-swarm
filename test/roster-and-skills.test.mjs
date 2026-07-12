@@ -59,6 +59,7 @@ test("every skill has valid frontmatter (name == dir), is token-clean, and refer
     if (existsSync(refDir)) {
       for (const rf of readdirSync(refDir)) {
         assert.deepEqual(scanText(readFileSync(join(refDir, rf), "utf8")), [], `${d}/references/${rf}: token-clean`);
+        assert.match(text, new RegExp(`\\[[^\\]]+\\]\\(references/${rf.replaceAll(".", "\\.")}\\)`), `${d}/references/${rf}: must be reachable through a Markdown link from SKILL.md`);
       }
     }
   }

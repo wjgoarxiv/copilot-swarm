@@ -9,7 +9,7 @@ const read = (p) => readFileSync(join(repoRoot, p), "utf8");
 
 test("published version has a dated changelog entry", () => {
   const pkg = JSON.parse(read("package.json"));
-  assert.equal(pkg.version, "0.1.2");
+  assert.equal(pkg.version, "0.1.3");
   const changelog = read("CHANGELOG.md");
   assert.match(changelog, new RegExp(`^## \\[${pkg.version.replaceAll(".", "\\.")}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m"));
   assert.doesNotMatch(changelog, new RegExp(`^## \\[${pkg.version.replaceAll(".", "\\.")}\\] - unreleased$`, "m"));
@@ -20,10 +20,11 @@ test("package allowlist includes the awesome-copilot manifest", () => {
   assert.ok(pkg.files.includes(".github/plugin"));
 });
 
-test("changelog releases the native-first migration as 0.1.2 without rewriting 0.1.1 history", () => {
+test("changelog records 0.1.3 intake compatibility without rewriting release history", () => {
   const changelog = read("CHANGELOG.md");
   assert.match(changelog, /^## \[Unreleased\]$/m);
-  assert.ok(changelog.indexOf("## [Unreleased]") < changelog.indexOf("## [0.1.2] - 2026-07-12"));
+  assert.ok(changelog.indexOf("## [Unreleased]") < changelog.indexOf("## [0.1.3] - 2026-07-12"));
+  assert.ok(changelog.indexOf("## [0.1.3] - 2026-07-12") < changelog.indexOf("## [0.1.2] - 2026-07-12"));
   assert.ok(changelog.indexOf("## [0.1.2] - 2026-07-12") < changelog.indexOf("## [0.1.1] - 2026-06-19"));
   assert.match(changelog, /native `task` subagents/);
   assert.match(changelog, /`verify` and `artifact`/);

@@ -51,4 +51,4 @@ and scope (must-have / must-NOT). **Wait for the user's explicit approval.** Nev
 auto-proceed from plan to implementation. Only after approval may the plan hand
 off to `csw-work`.
 
-See `references/full-workflow.md` for the detailed checklist and plan template.
+See the [full workflow checklist and plan template](references/full-workflow.md).
