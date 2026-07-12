@@ -1,7 +1,7 @@
 {
   "name": "copilot-swarm",
-  "version": "0.1.1",
-  "description": "Copilot-swarm (CSW): a native GitHub Copilot CLI plugin for parallel delegation, evidence-gated goal runtime, and plan/execute/review discipline.",
+  "version": "0.1.2",
+  "description": "Evidence-gated software delivery governance for GitHub Copilot CLI, built on native task, fleet, and task-management surfaces.",
   "type": "module",
   "bin": {
     "csw": "bin/csw.mjs"
@@ -10,13 +10,11 @@
     "bin",
     "scripts",
     "runtime/src",
-    "mcp",
     "skills",
     "agents",
     "hooks",
     ".github/plugin",
     ".plugin",
-    ".mcp.json",
     "AGENTS.md",
     "README.md",
     "README-Ko-KR.md",
@@ -31,7 +29,7 @@
     "release:check": "node scripts/release-check.mjs",
     "pack:dry-run": "npm pack --dry-run",
     "postinstall": "node scripts/postinstall.mjs",
-    "prepublishOnly": "npm test && npm run scan && npm run release:check && npm run pack:dry-run"
+    "prepublishOnly": "npm test && npm run scan && npm run release:check -- --publish && npm run pack:dry-run"
   },
   "keywords": [
     "copilot",
@@ -39,8 +37,7 @@
     "copilot-plugin",
     "swarm",
     "agents",
-    "orchestration",
-    "mcp"
+    "orchestration"
   ],
   "license": "MIT",
   "author": "wjgoarxiv",

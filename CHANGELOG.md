@@ -5,6 +5,28 @@ All notable changes to Copilot-swarm (CSW) are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.1.2] - 2026-07-12
+
+### Changed
+- Migrated active delegation guidance to Copilot CLI's native `task` subagents,
+  `/fleet` parallel execution, and `/tasks` oversight/cancellation; removed the
+  custom dispatcher from the shipped plugin.
+- Replaced generated install permission profiles with simple install/dry-run flows
+  and host-native permission guidance. Investigation safety now requires host tool
+  restrictions, while writing workers require isolated worktrees.
+- Hardened completion evidence around machine-generated `verify` and `artifact`
+  receipts. Free-text evidence can report failure or pending context but cannot pass
+  a criterion.
+- Limited continuation to the root `agentStop` surface. Missing, malformed, empty,
+  stale, completed, and safe-mode state intentionally fail open rather than trapping
+  the host.
+- Documented the accepted receipt boundary: Git freshness excludes ignored inputs,
+  non-git verification has no freshness guarantee, and timeout/cancel process-tree
+  cleanup is best-effort. Verified commands must be approved and non-daemonizing;
+  ignored inputs and cleanup require explicit receipts.
+
 ## [0.1.1] - 2026-06-19
 
 ### Added

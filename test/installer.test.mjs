@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parse, palette, banner, doctor, statusReport, main, cleanPackedDir, selectPermissionProfile, mcpConfigForProfile, permissionPlan, applyPermissionProfileToPackage } from "../bin/csw.mjs";
+import { parse, palette, banner, doctor, statusReport, main, cleanPackedDir, validatePackedCandidate } from "../bin/csw.mjs";
 import { doctrine } from "../hooks/session-doctrine.mjs";
-import { mkdtempSync, existsSync, rmSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, existsSync, rmSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dirname } from "node:path";
@@ -12,44 +12,34 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const packageVersion = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8")).version;
 
 test("parse: defaults and options", () => {
-  assert.deepEqual(parse([]), { cmd: "status", theme: "violet", color: true, dryRun: false, permissionProfile: null });
+  assert.deepEqual(parse([]), { cmd: "status", theme: "violet", color: true, dryRun: false });
   assert.equal(parse(["--help"]).cmd, "help");
   assert.equal(parse(["install"]).cmd, "install");
-  assert.equal(parse(["install", "--dry-run", "--permission-profile", "safe"]).dryRun, true);
-  assert.equal(parse(["install", "--dry-run", "--permission-profile", "safe"]).permissionProfile, "safe");
+  assert.equal(parse(["install", "--dry-run"]).dryRun, true);
   assert.equal(parse(["--theme", "ocean"]).theme, "ocean");
   assert.equal(parse(["--theme", "bogus"]).theme, "violet"); // unknown -> default
   assert.equal(parse(["--no-color"]).color, false);
 });
 
-test("permission profile selection: explicit, env fallback, non-TTY safe default, invalid/custom fail", () => {
-  assert.equal(selectPermissionProfile({ explicit: "balanced", isTTY: false }), "balanced");
-  assert.equal(selectPermissionProfile({ env: { CSW_PERMISSION_PROFILE: "full" }, isTTY: false }), "full");
-  assert.equal(selectPermissionProfile({ env: {}, isTTY: false }), "safe");
-  assert.equal(selectPermissionProfile({ env: {}, isTTY: true, prompt: () => "none" }), "none");
-  assert.throws(() => selectPermissionProfile({ explicit: "bogus", isTTY: false }), /invalid permission profile/);
-  assert.throws(() => selectPermissionProfile({ explicit: "custom", isTTY: false }), /future work/);
+test("parse: rejects unknown and removed options", () => {
+  assert.throws(() => parse(["install", "--dry-rnu"]), /unknown option: --dry-rnu/);
+  assert.throws(() => parse(["install", "--permission-profile", "safe"]), /unknown option: --permission-profile/);
+  assert.throws(() => parse(["install", "--permission-profile=safe"]), /unknown option: --permission-profile=safe/);
 });
 
-test("mcpConfigForProfile: supported profiles map to explicit MCP tools and args", () => {
-  const safe = mcpConfigForProfile("safe").config.mcpServers["csw-dispatch"];
-  assert.deepEqual(safe.tools, ["code_search", "research"]);
-  assert.deepEqual(safe.args, ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "safe"]);
-  const balanced = mcpConfigForProfile("balanced").config.mcpServers["csw-dispatch"];
-  assert.deepEqual(balanced.tools, ["dispatch", "code_search", "research"]);
-  assert.ok(balanced.args.includes("balanced"));
-  const full = mcpConfigForProfile("full").config.mcpServers["csw-dispatch"];
-  assert.ok(full.args.includes("full"));
-  const none = mcpConfigForProfile("none").config.mcpServers["csw-dispatch"];
-  assert.deepEqual(none.args, ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs"]);
-});
-
-test("permission dry-run plan prints profile, path, MCP tools, and preservation", () => {
-  const plan = permissionPlan("safe", "/tmp/pkg");
-  assert.match(plan, /Permission profile: safe/);
-  assert.match(plan, /Generated MCP config path: \/tmp\/pkg\/\.mcp\.json/);
-  assert.match(plan, /MCP tools: code_search, research/);
-  assert.match(plan, /preserved/);
+test("main: unknown option is a usage error and cannot reach install preparation", () => {
+  let prepared = false;
+  const errors = [];
+  const original = console.error;
+  console.error = (...args) => errors.push(args.join(" "));
+  try {
+    assert.equal(main(["install", "--dry-rnu"], { cleanPackedDir: () => { prepared = true; } }), 2);
+  } finally {
+    console.error = original;
+  }
+  assert.equal(prepared, false);
+  assert.match(errors.join("\n"), /unknown option: --dry-rnu/);
+  assert.match(errors.join("\n"), /csw install/);
 });
 
 test("palette: no-color yields empty codes; color yields ansi", () => {
@@ -74,16 +64,22 @@ test("doctor: reports node, copilot presence, plugin state (injected run)", () =
   assert.match(d.node, /^v\d+/);
   assert.match(d.copilot, /Copilot CLI/);
   assert.equal(d.pluginInstalled, true);
+  assert.equal(d.sourceVersion, packageVersion);
+  assert.equal(d.installedVersion, packageVersion);
+  assert.equal(d.versionMatches, true);
 });
 
-test("doctor: no copilot -> null + not installed", () => {
+test("doctor: no copilot -> plugin installation state is unknown", () => {
   const d = doctor(() => ({ ok: false, out: "" }));
   assert.equal(d.copilot, null);
-  assert.equal(d.pluginInstalled, false);
+  assert.equal(d.pluginListOk, false);
+  assert.equal(d.pluginInstalled, null);
+  assert.equal(d.installedVersion, null);
+  assert.equal(d.versionMatches, null);
 });
 
 test("statusReport: renders checks and skills/agents", () => {
-  const r = statusReport({ node: "v22", copilot: "x", pluginInstalled: false }, false, "violet");
+  const r = statusReport({ node: "v22", copilot: "x", pluginInstalled: false, sourceVersion: packageVersion, installedVersion: null, versionMatches: null }, false, "violet");
   assert.match(r, /GitHub Copilot CLI/);
   assert.match(r, /not installed — run: csw install/);
   assert.match(r, /swarm · csw-plan · csw-work · csw-review/);
@@ -123,46 +119,111 @@ test("cleanPackedDir: cleans up the temp dir if packing throws", () => {
   assert.ok(!existsSync(tmp), "temp dir removed on failure");
 });
 
-test("applyPermissionProfileToPackage preserves none and writes explicit profiles only", () => {
-  const tmp = mkdtempSync(join(tmpdir(), "csw-prof-"));
+function packedCandidate() {
+  const dir = mkdtempSync(join(tmpdir(), "csw-candidate-"));
+  mkdirSync(join(dir, ".plugin"), { recursive: true });
+  mkdirSync(join(dir, ".github/plugin"), { recursive: true });
+  writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "copilot-swarm", version: packageVersion }));
+  const manifest = JSON.stringify({ name: "copilot-swarm", version: packageVersion });
+  writeFileSync(join(dir, ".plugin/plugin.json"), manifest);
+  writeFileSync(join(dir, ".github/plugin/plugin.json"), manifest);
+  return dir;
+}
+
+test("validatePackedCandidate: requires synchronized package and plugin manifests", () => {
+  const dir = packedCandidate();
   try {
-    const mcp = join(tmp, ".mcp.json");
-    writeFileSync(mcp, readFileSync(join(repoRoot, ".mcp.json"), "utf8"));
-    const noneBefore = readFileSync(mcp, "utf8");
-    assert.equal(applyPermissionProfileToPackage(tmp, "none").written, false);
-    assert.equal(readFileSync(mcp, "utf8"), noneBefore);
-    assert.equal(applyPermissionProfileToPackage(tmp, "safe").written, true);
-    const updated = JSON.parse(readFileSync(mcp, "utf8"));
-    assert.deepEqual(updated.mcpServers["csw-dispatch"].tools, ["code_search", "research"]);
+    assert.deepEqual(validatePackedCandidate(dir), { name: "copilot-swarm", version: packageVersion });
+    rmSync(join(dir, ".plugin"), { recursive: true, force: true });
+    assert.throws(() => validatePackedCandidate(dir), /plugin manifest/i);
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 
-test("main: install dry-run writes nothing and reports selected permission profile", () => {
+test("main: install dry-run probes Copilot, prepares and validates a clean candidate, then cleans up without install", () => {
+  const dir = packedCandidate();
   const logs = [];
   const orig = console.log;
+  let cleaned = false;
+  let installs = 0;
   console.log = (...a) => logs.push(a.join(" "));
   try {
-    assert.equal(main(["install", "--dry-run", "--permission-profile", "safe"]), 0);
+    assert.equal(main(["install", "--dry-run"], {
+      doctor: () => ({ copilot: "GitHub Copilot CLI 1.0.70." }),
+      cleanPackedDir: () => ({ dir, cleanup: () => { cleaned = true; rmSync(dir, { recursive: true, force: true }); } }),
+      execFileSync: () => { installs++; },
+    }), 0);
   } finally {
     console.log = orig;
+    rmSync(dir, { recursive: true, force: true });
   }
   const text = logs.join("\n");
-  assert.match(text, /Permission profile: safe/);
-  assert.match(text, /Dry run: no files written/);
+  assert.equal(cleaned, true);
+  assert.equal(installs, 0);
+  assert.match(text, /validated clean packed candidate/i);
+  assert.match(text, /no install was run/i);
+  assert.doesNotMatch(text, /permission profile|MCP/i);
 });
 
-test("main: invalid permission profile fails clearly", () => {
-  const errs = [];
-  const orig = console.error;
-  console.error = (...a) => errs.push(a.join(" "));
+test("main: dry-run stops before packing when Copilot is unavailable", () => {
+  let packed = false;
+  const original = console.error;
+  console.error = () => {};
   try {
-    assert.equal(main(["install", "--dry-run", "--permission-profile", "bogus"]), 2);
+    assert.equal(main(["install", "--dry-run"], {
+      doctor: () => ({ copilot: null }),
+      cleanPackedDir: () => { packed = true; },
+    }), 1);
   } finally {
-    console.error = orig;
+    console.error = original;
   }
-  assert.match(errs.join("\n"), /invalid permission profile/);
+  assert.equal(packed, false);
+});
+
+test("main: local-path install uses the validated packed candidate and always cleans up", () => {
+  const dir = packedCandidate();
+  const calls = [];
+  let cleaned = false;
+  const original = console.log;
+  console.log = () => {};
+  try {
+    assert.equal(main(["install"], {
+      doctor: () => ({ copilot: "GitHub Copilot CLI 1.0.70." }),
+      cleanPackedDir: () => ({ dir, cleanup: () => { cleaned = true; rmSync(dir, { recursive: true, force: true }); } }),
+      execFileSync: (command, args) => calls.push([command, ...args]),
+    }), 0);
+  } finally {
+    console.log = original;
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.deepEqual(calls, [["copilot", "plugin", "install", dir]]);
+  assert.equal(cleaned, true);
+});
+
+test("main: install failure never recommends the cleaned temporary package path", () => {
+  const dir = packedCandidate();
+  const errors = [];
+  let cleaned = false;
+  const originalError = console.error;
+  const originalLog = console.log;
+  console.error = (...args) => errors.push(args.join(" "));
+  console.log = () => {};
+  try {
+    assert.equal(main(["install"], {
+      doctor: () => ({ copilot: "GitHub Copilot CLI 1.0.70." }),
+      cleanPackedDir: () => ({ dir, cleanup: () => { cleaned = true; rmSync(dir, { recursive: true, force: true }); } }),
+      execFileSync: () => { throw new Error("install rejected"); },
+    }), 1);
+  } finally {
+    console.error = originalError;
+    console.log = originalLog;
+    rmSync(dir, { recursive: true, force: true });
+  }
+  const message = errors.join("\n");
+  assert.equal(cleaned, true);
+  assert.doesNotMatch(message, new RegExp(dir.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(message, /rerun `csw install`/i);
 });
 
 test("doctrine: injects the runtime command so the model can call it", () => {

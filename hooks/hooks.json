@@ -28,13 +28,6 @@
         "bash": "node \"${PLUGIN_ROOT}/hooks/continuation.mjs\"",
         "timeoutSec": 10
       }
-    ],
-    "subagentStop": [
-      {
-        "type": "command",
-        "bash": "node \"${PLUGIN_ROOT}/hooks/continuation.mjs\"",
-        "timeoutSec": 10
-      }
     ]
   }
 }

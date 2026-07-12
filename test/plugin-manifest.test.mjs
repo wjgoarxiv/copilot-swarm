@@ -30,6 +30,9 @@ test("plugin manifest is valid JSON with required identity fields", () => {
   assert.equal(m.version, pkg.version);
   assert.match(m.version, /^\d+\.\d+\.\d+$/, "version must be semver");
   assert.ok(typeof m.description === "string" && m.description.length > 0);
+  assert.match(m.description, /evidence-gated/i);
+  assert.match(m.description, /native/i);
+  assert.doesNotMatch(m.description, /^Parallel task delegation/i);
 });
 
 test("awesome-copilot manifest stays synchronized with the primary manifest", () => {
@@ -49,18 +52,17 @@ test("plugin manifest component pointers resolve to real targets", () => {
   if (m.skills) resolveDir(m.skills);
   if (m.agents) resolveDir(m.agents);
   if (m.hooks) resolveFile(typeof m.hooks === "string" ? m.hooks : m.hooks.paths[0]);
-  if (m.mcpServers) resolveFile(m.mcpServers);
+  assert.equal(m.mcpServers, undefined, "native-first plugin must not register a custom MCP server");
 });
 
-test("hooks.json and .mcp.json are valid JSON with expected shape", () => {
+test("hooks.json is valid JSON and legacy MCP config is absent", () => {
   const hooks = JSON.parse(read("hooks/hooks.json"));
   assert.equal(typeof hooks.hooks, "object");
-  const mcp = JSON.parse(read(".mcp.json"));
-  assert.equal(typeof mcp.mcpServers, "object");
+  assert.equal(existsSync(join(repoRoot, ".mcp.json")), false);
 });
 
-test("plugin manifest and skeleton config are token-clean", () => {
-  for (const f of [primaryManifestPath, awesomeCopilotManifestPath, "hooks/hooks.json", ".mcp.json", "AGENTS.md"]) {
+test("plugin manifest and hook config are token-clean", () => {
+  for (const f of [primaryManifestPath, awesomeCopilotManifestPath, "hooks/hooks.json", "AGENTS.md"]) {
     assert.deepEqual(scanText(read(f)), [], `${f} must be token-clean`);
   }
 });

@@ -1,34 +1,37 @@
-# CSW permission profiles
+# Native permissions
 
-`csw install` can generate a profile-specific MCP configuration in the clean
-package copy passed to `copilot plugin install`. It does **not** overwrite existing
-user OpenCode/Copilot permission settings.
+Copilot-swarm uses Copilot CLI's native agent, scheduling, and permission surfaces.
+It does not generate host permission settings or install a separate scheduler.
 
-Profiles use only Copilot CLI controls already exercised by CSW:
+`csw install` installs a clean, allowlisted package copy and does not overwrite
+user Copilot/OpenCode permission settings. Configure permissions through the host
+CLI when needed.
 
-| Profile | MCP tools exposed | Worker permission flags |
-|---|---|---|
-| `safe` | `code_search`, `research` | `--deny-tool write` |
-| `balanced` | `dispatch`, `code_search`, `research` | no broad grant; Copilot may ask interactively |
-| `full` | `dispatch`, `code_search`, `research` | `--allow-all-tools` for default dispatch workers |
-| `none` | packaged default | no generated CSW permission profile |
+The installer currently passes that validated local package path directly to
+`copilot plugin install`; this flow has been verified with Copilot CLI 1.0.70.
+Copilot CLI 1.0.70 already marks direct local-path installation as deprecated but
+still supports it. CSW will need to migrate the final registration step before the
+CLI removes that path, while retaining the same clean-package preparation.
 
-`code_search` and `research` remain read-only/research modes and continue to add
-`--deny-tool write` even if `full` is selected.
+The native-first implementation is versioned as `0.1.2` for GitHub source
+distribution. The registry's `0.1.1` is the earlier implementation; use the
+tagged source-built local flow below once `v0.1.2` is available.
 
-`custom` is reserved for a future schema-backed implementation. It is not accepted
-by the installer.
-
-Examples:
+The same local flow is:
 
 ```sh
-npx --yes copilot-swarm@0.1.1 install --permission-profile safe
-npx --yes copilot-swarm@0.1.1 install --dry-run --permission-profile balanced
-CSW_PERMISSION_PROFILE=safe csw install
+csw install --dry-run
+csw install
 ```
 
-Use `full` only when you trust worker prompts and repository state:
+## Native delegation safety
 
-```sh
-npx --yes copilot-swarm@0.1.1 install --permission-profile full
-```
+- For investigation subagents, configure the host deny/available-tool policy so
+  write and mutating shell tools are unavailable. Instructions saying “do not edit”
+  are intent, not enforcement.
+- For writing subagents, create a separate git worktree per worker. Review the
+  worker's diff and rerun verification before integrating it.
+- Use the host `task` tool for model-driven delegation, `/fleet` for user-visible
+  parallel execution, and `/tasks` to inspect or cancel running work.
+- Recheck the installed CLI's permission syntax with its own help/docs. CSW does not
+  silently broaden or overwrite host permissions.

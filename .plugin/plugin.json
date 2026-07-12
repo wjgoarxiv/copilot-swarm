@@ -1,13 +1,12 @@
 {
   "name": "copilot-swarm",
-  "version": "0.1.1",
-  "description": "Parallel task delegation and an evidence-gated plan/execute/review workflow for the GitHub Copilot CLI.",
+  "version": "0.1.2",
+  "description": "Evidence-gated software delivery governance for GitHub Copilot CLI, built on native task, fleet, and task-management surfaces.",
   "author": { "name": "Copilot-swarm contributors" },
   "license": "MIT",
-  "keywords": ["copilot-cli", "swarm", "agents", "orchestration", "mcp", "workflow"],
+  "keywords": ["copilot-cli", "swarm", "agents", "orchestration", "workflow"],
   "category": "Developer Tools",
   "skills": "./skills/",
   "agents": "./agents/",
-  "hooks": "./hooks/hooks.json",
-  "mcpServers": "./.mcp.json"
+  "hooks": "./hooks/hooks.json"
 }

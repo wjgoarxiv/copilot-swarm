@@ -11,7 +11,7 @@ const V = (() => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "..");
     return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).version;
   } catch {
-    return "0.1.1";
+    return "0.1.2";
   }
 })();
 
@@ -69,7 +69,7 @@ export function renderInstallBanner(color = true, version = V) {
   for (const row of wordmarkLines(p)) lines.push(row);
   lines.push("");
   lines.push(`  ${p.b}${p.a}copilot-swarm${p.r}  ${p.d}v${version}${p.r}`);
-  lines.push(`  ${p.d}parallel delegation · evidence-gated workflow for GitHub Copilot CLI${p.r}`);
+  lines.push(`  ${p.d}evidence-gated delivery governance · native GitHub Copilot CLI${p.r}`);
   lines.push("");
   lines.push(`  ${p.v}Next${p.r}   ${p.b}csw install${p.r}  →  ${p.b}copilot${p.r}`);
   lines.push(`  ${p.v}Help${p.r}   csw status · csw hud · csw help`);

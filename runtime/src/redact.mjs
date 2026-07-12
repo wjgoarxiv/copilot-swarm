@@ -42,17 +42,18 @@ export function safeMode(env = process.env) {
 }
 
 const SECRET_ENV = /(?:TOKEN|SECRET|PASSWORD|PASSWD|PWD|KEY|COOKIE|SESSION|CREDENTIAL|AUTH)/i;
-const ALLOWED_EXACT_ENV = new Set([
-  "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "TERM",
-  "CSW_DISPATCH_CMD", "CSW_DISPATCH_TIMEOUT_MS", "CSW_DISPATCH_CONCURRENCY", "CSW_DISPATCH_MAX_DEPTH",
-]);
-
-export function workerEnv(base = process.env, depth) {
+/** Minimal environment for local verification commands; secret-bearing names are never inherited. */
+export function verificationEnv(base = process.env) {
   const env = {};
+  const allowed = new Set([
+    "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TEMP", "TMP", "LANG", "LC_ALL", "TERM",
+    "SystemRoot", "ComSpec", "PATHEXT", "WINDIR",
+  ]);
   for (const [k, v] of Object.entries(base || {})) {
     if (SECRET_ENV.test(k)) continue;
-    if (ALLOWED_EXACT_ENV.has(k) || k.startsWith("LC_")) env[k] = String(v);
+    if (allowed.has(k) || k.startsWith("LC_")) {
+      env[k] = String(v);
+    }
   }
-  env.CSW_DISPATCH_DEPTH = String(depth);
   return env;
 }

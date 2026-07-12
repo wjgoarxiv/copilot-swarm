@@ -9,7 +9,7 @@
 // Options: --theme <violet|ocean|mono>, --no-color
 
 import { execFileSync } from "node:child_process";
-import { realpathSync, readFileSync, writeFileSync, mkdtempSync, rmSync, openSync, closeSync, readSync, writeSync } from "node:fs";
+import { realpathSync, readFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -28,36 +28,7 @@ const THEMES = {
 const RESET = "\x1b[0m";
 const OK = "\x1b[32m✓\x1b[0m";
 const NO = "\x1b[31m✗\x1b[0m";
-
-export const PERMISSION_PROFILES = {
-  safe: {
-    tools: ["code_search", "research"],
-    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "safe"],
-    warning: "least privilege/read-mostly; dispatch is not exposed in generated MCP config",
-  },
-  balanced: {
-    tools: ["dispatch", "code_search", "research"],
-    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "balanced"],
-    warning: "recommended; no broad --allow-all-tools grant unless a worker/tool asks interactively",
-  },
-  full: {
-    tools: ["dispatch", "code_search", "research"],
-    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs", "--permission-profile", "full"],
-    warning: "WARNING: broad worker tool access via --allow-all-tools for dispatch workers",
-  },
-  none: {
-    tools: ["dispatch", "code_search", "research"],
-    args: ["${PLUGIN_ROOT}/mcp/dispatch/server.mjs"],
-    warning: "do not modify CSW permission settings; install plugin files only",
-  },
-};
-
-export function normalizePermissionProfile(value) {
-  const p = String(value || "").toLowerCase();
-  if (p === "custom") throw new Error("permission profile 'custom' is future work; choose safe, balanced, full, or none");
-  if (!PERMISSION_PROFILES[p]) throw new Error(`invalid permission profile: ${value}`);
-  return p;
-}
+const SEMVER = "(\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?)";
 
 export function palette(themeName = "violet", color = true) {
   const t = THEMES[themeName] || THEMES.violet;
@@ -81,11 +52,28 @@ export function banner(themeName = "violet", color = true) {
 export function doctor(run = defaultRun) {
   const copilot = run(["copilot", "--version"]);
   const installed = copilot.ok ? run(["copilot", "plugin", "list"]) : { ok: false, out: "" };
+  const entry = installed.ok ? parsePluginList(installed.out) : { installed: null, version: null };
   return {
     node: process.version,
     copilot: copilot.ok ? copilot.out.trim().split("\n")[0] : null,
-    pluginInstalled: installed.ok && /copilot-swarm/.test(installed.out),
+    pluginListOk: installed.ok,
+    pluginInstalled: entry.installed,
+    sourceVersion: VERSION,
+    installedVersion: entry.version,
+    versionMatches: entry.version ? entry.version === VERSION : null,
   };
+}
+
+export function parsePluginList(text) {
+  let installed = false;
+  const versionPattern = new RegExp(`^copilot-swarm\\s+\\(v${SEMVER}\\)$`);
+  for (const raw of String(text || "").split(/\r?\n/)) {
+    const line = raw.replace(/\x1b\[[0-9;]*m/g, "").trim().replace(/^(?:[•*-]\s*)/, "");
+    const exact = line.match(versionPattern);
+    if (exact) return { installed: true, version: exact[1] };
+    if (/^copilot-swarm(?:\s|$)/.test(line)) installed = true;
+  }
+  return { installed, version: null };
 }
 
 export function statusReport(d, color = true, themeName = "violet") {
@@ -96,7 +84,17 @@ export function statusReport(d, color = true, themeName = "violet") {
   const out = [banner(themeName, color), ""];
   out.push(line(true, "Node", d.node));
   out.push(line(!!d.copilot, "GitHub Copilot CLI", d.copilot || "not found — install from https://docs.github.com/copilot/how-tos/copilot-cli"));
-  out.push(line(d.pluginInstalled, "copilot-swarm plugin", d.pluginInstalled ? "installed" : "not installed — run: csw install"));
+  if (d.pluginListOk === false) {
+    out.push(line(false, "copilot-swarm plugin", "PLUGIN LIST UNAVAILABLE — could not determine installation or version"));
+  } else if (!d.pluginInstalled) {
+    out.push(line(false, "copilot-swarm plugin", "not installed — run: csw install"));
+  } else if (d.versionMatches) {
+    out.push(line(true, "copilot-swarm plugin", `installed v${d.installedVersion} — version matches source`));
+  } else if (d.installedVersion) {
+    out.push(line(false, "copilot-swarm plugin", `VERSION MISMATCH — source v${d.sourceVersion}, installed v${d.installedVersion}; reinstall`));
+  } else {
+    out.push(line(false, "copilot-swarm plugin", `VERSION UNKNOWN — source v${d.sourceVersion}; reinstall or inspect copilot plugin list`));
+  }
   out.push("");
   out.push(p.paint("  Skills:", p.primary) + " /copilot-swarm:swarm · csw-plan · csw-work · csw-review");
   out.push(p.paint("  Agents:", p.primary) + " explorer · researcher · planner · gap-analyst · plan-reviewer · verifier");
@@ -122,67 +120,21 @@ export function cleanPackedDir(pkgRoot = PKG_ROOT, exec = execFileSync, makeTmp 
   }
 }
 
-export function mcpConfigForProfile(profile, baseText = readFileSync(join(PKG_ROOT, ".mcp.json"), "utf8")) {
-  const p = normalizePermissionProfile(profile);
-  const config = JSON.parse(baseText);
-  const server = config.mcpServers?.["csw-dispatch"];
-  if (!server) throw new Error(".mcp.json missing csw-dispatch server");
-  server.args = [...PERMISSION_PROFILES[p].args];
-  server.tools = [...PERMISSION_PROFILES[p].tools];
-  return { profile: p, config };
-}
-
-export function applyPermissionProfileToPackage(packageDir, profile) {
-  const p = normalizePermissionProfile(profile);
-  if (p === "none") return { profile: p, path: join(packageDir, ".mcp.json"), written: false };
-  const target = join(packageDir, ".mcp.json");
-  const { config } = mcpConfigForProfile(p, readFileSync(target, "utf8"));
-  writeFileSync(target, JSON.stringify(config, null, 2) + "\n");
-  return { profile: p, path: target, written: true };
-}
-
-export function permissionPlan(profile, packageDir = "<clean package copy>") {
-  const p = normalizePermissionProfile(profile);
-  const where = join(packageDir, ".mcp.json");
-  const { config } = mcpConfigForProfile(p);
-  return [
-    `Permission profile: ${p}`,
-    `Profile details: ${PERMISSION_PROFILES[p].warning}`,
-    `Generated MCP config path: ${where}`,
-    `MCP tools: ${config.mcpServers["csw-dispatch"].tools.join(", ")}`,
-    `MCP args: ${config.mcpServers["csw-dispatch"].args.join(" ")}`,
-    `User Copilot/OpenCode config: preserved (CSW installer does not overwrite existing user permission settings)`,
-  ].join("\n");
-}
-
-function promptTTY() {
-  const menu = [
-    "Select CSW permission profile:",
-    "  1) safe     least privilege/read-mostly",
-    "  2) balanced recommended",
-    "  3) full     broad worker access (warning)",
-    "  4) none     do not modify CSW permission settings",
-    "custom profile: future work (not implemented)",
-    "Choice [safe]: ",
-  ].join("\n");
-  let fd;
-  try {
-    fd = openSync("/dev/tty", "r+");
-    writeSync(fd, menu);
-    const buf = Buffer.alloc(64);
-    const n = readSync(fd, buf, 0, buf.length, null);
-    const answer = buf.toString("utf8", 0, n).trim().toLowerCase();
-    return { "": "safe", "1": "safe", safe: "safe", "2": "balanced", balanced: "balanced", "3": "full", full: "full", "4": "none", none: "none" }[answer] || answer;
-  } finally {
-    if (fd !== undefined) try { closeSync(fd); } catch {}
+export function validatePackedCandidate(packageDir) {
+  const load = (path, label) => {
+    try { return JSON.parse(readFileSync(join(packageDir, path), "utf8")); }
+    catch { throw new Error(`${label} is missing or invalid`); }
+  };
+  const pkg = load("package.json", "package manifest");
+  const primary = load(".plugin/plugin.json", "primary plugin manifest");
+  const github = load(".github/plugin/plugin.json", "GitHub plugin manifest");
+  if (pkg.name !== "copilot-swarm" || primary.name !== pkg.name || github.name !== pkg.name) {
+    throw new Error("plugin manifest names do not match package manifest");
   }
-}
-
-export function selectPermissionProfile({ explicit, env = process.env, isTTY = process.stdin.isTTY, prompt = promptTTY } = {}) {
-  if (explicit) return normalizePermissionProfile(explicit);
-  if (env.CSW_PERMISSION_PROFILE) return normalizePermissionProfile(env.CSW_PERMISSION_PROFILE);
-  if (isTTY) return normalizePermissionProfile(prompt());
-  return "safe";
+  if (!pkg.version || primary.version !== pkg.version || github.version !== pkg.version) {
+    throw new Error("plugin manifest versions do not match package manifest");
+  }
+  return { name: pkg.name, version: pkg.version };
 }
 
 function defaultRun(cmd) {
@@ -194,14 +146,17 @@ function defaultRun(cmd) {
 }
 
 export function parse(argv) {
-  const a = { cmd: "status", theme: "violet", color: true, dryRun: false, permissionProfile: null };
+  const a = { cmd: "status", theme: "violet", color: true, dryRun: false };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--help" || t === "-h") a.cmd = "help";
-    else if (t === "--theme") a.theme = argv[++i];
+    else if (t === "--theme") {
+      if (!argv[i + 1] || argv[i + 1].startsWith("-")) throw new Error("missing value for --theme");
+      a.theme = argv[++i];
+    }
     else if (t === "--no-color") a.color = false;
     else if (t === "--dry-run") a.dryRun = true;
-    else if (t === "--permission-profile") a.permissionProfile = argv[++i];
+    else if (t.startsWith("-")) throw new Error(`unknown option: ${t}`);
     else if (!t.startsWith("-")) a.cmd = t;
   }
   if (!THEMES[a.theme]) a.theme = "violet";
@@ -218,15 +173,23 @@ const USAGE = `csw — Copilot-swarm
 
 Install options:
   --dry-run
-  --permission-profile <safe|balanced|full|none>  (custom: future work)
 
 Options: --theme <violet|ocean|mono>  --no-color`;
 
-export function main(argv) {
-  const a = parse(argv);
+export function main(argv, deps = {}) {
+  let a;
+  try {
+    a = parse(argv);
+  } catch (err) {
+    console.error(`${err.message}\n\n${USAGE}`);
+    return 2;
+  }
+  const probe = deps.doctor || doctor;
+  const pack = deps.cleanPackedDir || cleanPackedDir;
+  const execute = deps.execFileSync || execFileSync;
   const color = a.color && process.stdout.isTTY !== false;
   if (a.cmd === "help") { console.log(USAGE); return 0; }
-  if (a.cmd === "doctor") { console.log(JSON.stringify(doctor(), null, 2)); return 0; }
+  if (a.cmd === "doctor") { console.log(JSON.stringify(probe(), null, 2)); return 0; }
   if (a.cmd === "hud") {
     const cmd = `node "${join(PKG_ROOT, "bin", "csw-statusline.mjs")}"`;
     console.log("Add this to ~/.copilot/settings.json to enable the CSW HUD status line:\n");
@@ -234,42 +197,37 @@ export function main(argv) {
     console.log("\nIt shows the active goal's criteria progress / blockers (nothing when no goal is active).");
     return 0;
   }
-  if (a.cmd === "status") { console.log(statusReport(doctor(), color, a.theme)); return 0; }
+  if (a.cmd === "status") {
+    const d = probe();
+    console.log(statusReport(d, color, a.theme));
+    return d.versionMatches === true ? 0 : 1;
+  }
   if (a.cmd === "install") {
     const mark = color ? OK : "[ok]";
     const fail = color ? NO : "[--]";
-    let profile;
-    try {
-      profile = selectPermissionProfile({ explicit: a.permissionProfile });
-    } catch (err) {
-      console.error(`${fail} ${err.message}`);
-      return 2;
-    }
-    if (a.dryRun) {
-      console.log(permissionPlan(profile));
-      console.log("Dry run: no files written and copilot plugin install was not run.");
-      return 0;
-    }
-    const d = doctor();
+    const d = probe();
     if (!d.copilot) { console.error(`${fail} GitHub Copilot CLI not found. Install it first.`); return 1; }
     console.log("Packing a clean copy (allowlisted files only) …");
     let packed;
     try {
-      packed = cleanPackedDir();
+      packed = pack();
     } catch {
       console.error(`${fail} Could not pack the package (is npm available?).`);
       return 1;
     }
     try {
-      const applied = applyPermissionProfileToPackage(packed.dir, profile);
-      console.log(permissionPlan(profile, packed.dir));
-      if (applied.written) console.log(`Permission profile written: ${applied.path}`);
-      else console.log("Permission profile write skipped by profile 'none'.");
-      execFileSync("copilot", ["plugin", "install", packed.dir], { stdio: "inherit" });
+      const candidate = validatePackedCandidate(packed.dir);
+      if (a.dryRun) {
+        console.log(`Dry run: validated clean packed candidate ${candidate.name}@${candidate.version}; no install was run.`);
+        return 0;
+      }
+      execute("copilot", ["plugin", "install", packed.dir], { stdio: "inherit" });
       console.log(`${mark} Installed. Start a session: copilot`);
       return 0;
-    } catch {
-      console.error(`${fail} Install failed. Try: copilot plugin install ${packed.dir}`);
+    } catch (err) {
+      console.error(a.dryRun
+        ? `${fail} Packed candidate validation failed: ${err.message}`
+        : `${fail} Install failed. Resolve the Copilot CLI error, then rerun \`csw install\`.`);
       return 1;
     } finally {
       packed.cleanup();

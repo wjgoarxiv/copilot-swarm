@@ -6,7 +6,9 @@
 //   init --objective <s> (--criteria <block> | --criteria-file <path>)
 //   show                          print current state JSON
 //   status                        print { done, reasons }
-//   evidence --id <C0NN> --evidence <s> [--status pass|fail|blocked|pending]
+//   verify --id <C0NN> [--timeout-ms N] -- <argv...>
+//   artifact --id <C0NN> --path <path> --summary <text>
+//   evidence --id <C0NN> --evidence <s> [--status fail|blocked|pending]
 //   blocker add --id <id> --reason <s>
 //   blocker resolve --id <id>
 //   steer --text <s>              exit 0 accepted, exit 3 refused (weakening)
@@ -61,6 +63,29 @@ export function main(argv, cwd = process.cwd()) {
         if (typeof f.evidence !== "string") return fail2("evidence requires --evidence <text>");
         const c = rt.captureEvidence({ id: f.id, evidence: f.evidence, status: f.status || "pass" }, cwd);
         out({ ok: true, id: c.id, status: c.status });
+        return 0;
+      }
+      case "verify": {
+        const separator = rest.indexOf("--");
+        if (separator < 0 || separator === rest.length - 1) return fail2("verify requires -- <argv>");
+        const verifyFlags = parseFlags(rest.slice(0, separator));
+        if (typeof verifyFlags.id !== "string") return fail2("verify requires --id <C0NN>");
+        const commandArgv = rest.slice(separator + 1);
+        if (!commandArgv[0]) return fail2("verify requires a nonempty executable after --");
+        if (verifyFlags["timeout-ms"] !== undefined) {
+          const timeout = Number(verifyFlags["timeout-ms"]);
+          if (!Number.isInteger(timeout) || timeout < 1 || timeout > 300000) return fail2("verify --timeout-ms must be an integer from 1 to 300000");
+        }
+        const c = rt.verifyCriterion({ id: verifyFlags.id, timeoutMs: verifyFlags["timeout-ms"], argv: commandArgv }, cwd);
+        out({ ok: c.status === "pass", id: c.id, status: c.status, receipt: c.receipt });
+        return c.status === "pass" ? 0 : 1;
+      }
+      case "artifact": {
+        if (typeof f.id !== "string") return fail2("artifact requires --id <C0NN>");
+        if (typeof f.path !== "string") return fail2("artifact requires --path <path>");
+        if (typeof f.summary !== "string") return fail2("artifact requires --summary <text>");
+        const c = rt.captureArtifact({ id: f.id, path: f.path, summary: f.summary }, cwd);
+        out({ ok: true, id: c.id, status: c.status, receipt: c.receipt });
         return 0;
       }
       case "blocker": {

@@ -32,7 +32,7 @@ export function doctrine(read = readFileSync, runtimeCmd = RUNTIME_CMD) {
   const runtimeNote =
     `\n\n## Goal runtime CLI\nDrive the evidence-gated goal runtime with this exact ` +
     `command (it is not on PATH):\n\n    ${runtimeCmd} <subcommand>\n\n` +
-    `Subcommands: init · show · status · evidence · blocker · steer · complete · clear.`;
+    `Subcommands: init · show · status · verify · artifact · evidence · blocker · steer · complete · clear.`;
   return `Copilot-swarm (CSW) is active. Follow this doctrine:\n\n${clipped}${runtimeNote}`;
 }
 

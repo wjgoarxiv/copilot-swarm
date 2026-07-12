@@ -16,6 +16,8 @@ test("renderInstallBanner: contains wordmark, product, version, next steps", () 
   assert.match(b, /copilot-swarm/);
   assert.match(b, new RegExp(`v${packageVersion.replaceAll(".", "\\.")}`));
   assert.match(b, /csw install/);
+  assert.match(b, /evidence-gated delivery governance/i);
+  assert.doesNotMatch(b, /parallel delegation/i);
   assert.ok(b.includes("\x1b["), "colored variant has ANSI");
 });
 

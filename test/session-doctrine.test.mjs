@@ -23,6 +23,32 @@ test("doctrine declares the `csw` keyword trigger for the loop", () => {
   assert.match(d, /csw-loop/);
 });
 
+test("doctrine delegates through native task/fleet surfaces with host-enforced isolation", () => {
+  const d = doctrine();
+  assert.match(d, /host `task` subagent tool/);
+  assert.match(d, /\/fleet/);
+  assert.match(d, /\/tasks/);
+  assert.match(d, /deny\/available-tool policy/);
+  assert.match(d, /isolated git worktree/);
+  assert.match(d, /claim, not evidence/i);
+});
+
+test("doctrine states receipt and trusted-command trust boundaries", () => {
+  const d = doctrine();
+  assert.match(d, /Subcommands:[^\n]*verify[^\n]*artifact/);
+  assert.match(d, /malicious same-user editor/);
+  assert.match(d, /non-git\s+`verify` receipt has no workspace-freshness guarantee/i);
+  assert.match(d, /trusted-command runner, not a sandbox/);
+  assert.match(d, /Never execute argv.*worker output[\s\S]*fetched pages[\s\S]*issue\s+text[\s\S]*prompt-injected content/i);
+  assert.match(d, /tracked and non-ignored untracked content/i);
+  assert.match(d, /Ignored\s+inputs are not covered[\s\S]*`artifact` receipts/i);
+  assert.match(d, /approved, non-daemonizing commands/i);
+  assert.match(d, /Timeout\/cancel process-tree cleanup\s+is best-effort/i);
+  assert.match(d, /daemonized commands may outlive it/i);
+  assert.match(d, /record a cleanup receipt/i);
+  assert.match(d, /deny\/available-tool policy and isolated worktrees remain required/);
+});
+
 test("doctrine: returns null if the doctrine file is unreadable", () => {
   assert.equal(doctrine(() => { throw new Error("nope"); }), null);
 });

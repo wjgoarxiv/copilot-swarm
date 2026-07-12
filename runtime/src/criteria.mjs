@@ -8,7 +8,7 @@
 // `channel` is the manual-QA surface (http/cli/tmux/browser/...), `test` is the
 // automated check, `scenario` is the observable PASS condition.
 
-const ID_RE = /^C\d{2,}$/;
+export const CRITERION_ID_RE = /^C\d{3,}$/;
 const FIELDS = ["channel", "test", "scenario"];
 
 /** Parse a criteria block into structured criteria. Throws on malformed input. */
@@ -25,7 +25,7 @@ export function parseCriteria(text) {
     // A criterion candidate's first segment is a single bare token (no spaces).
     // Prose like "see foo | bar" has spaces in segment 0 and is skipped.
     if (/\s/.test(id)) return;
-    if (!ID_RE.test(id)) {
+    if (!CRITERION_ID_RE.test(id)) {
       throw new Error(`line ${i + 1}: invalid criterion id "${id}" (expected C0NN)`);
     }
     if (seen.has(id)) throw new Error(`duplicate criterion id "${id}"`);
@@ -50,7 +50,7 @@ export function parseCriteria(text) {
     for (const f of FIELDS) {
       if (!fields[f]) throw new Error(`criterion ${id}: missing required field "${f}"`);
     }
-    out.push({ id, channel: fields.channel, test: fields.test, scenario: fields.scenario, status: "pending", evidence: null });
+    out.push({ id, channel: fields.channel, test: fields.test, scenario: fields.scenario, status: "pending", revision: 0, receipt: null, notes: [] });
   });
   if (out.length === 0) throw new Error("no criteria found (expected at least one C0NN line)");
   return out;

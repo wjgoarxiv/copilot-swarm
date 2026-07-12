@@ -35,6 +35,18 @@ Copilot already gates shell/git via its permission model
 (`--allow-tool`/`--deny-tool`, e.g. `shell(git:*)`), so a `preToolUse` nag would add
 noise without added safety. Skipped to keep the hook surface quiet and useful.
 
+## Subagent scheduling — KEPT NATIVE
+
+Copilot CLI owns subagent lifecycle and concurrency. CSW uses the host `task` tool
+for model-driven delegation, `/fleet` for user-visible parallel execution, and
+`/tasks` for oversight and cancellation. CSW adds worker roles and evidence
+discipline rather than a second scheduler.
+
+An investigation role's prose does not enforce non-mutation. The conductor must
+withhold mutating tools with the host deny/available-tool policy. Workers that can
+write must use isolated git worktrees so their changes can be reviewed before
+integration.
+
 ## telemetry — REMOVED
 
 No call-home, no analytics, no external runtime dependency (privacy-first; also keeps

@@ -13,26 +13,31 @@ npm run pack:dry-run
 npm view copilot-swarm version
 ```
 
-`prepublishOnly` runs the local gates again (`npm test`, `npm run scan`,
-`npm run release:check`, `npm run pack:dry-run`).
+`prepublishOnly` runs the local gates again and invokes `release:check -- --publish`,
+which fails if the package version already exists in the npm registry.
 
 ## Real-surface probes
 
 ```sh
 node bin/csw.mjs status
 node bin/csw.mjs doctor
-node bin/csw.mjs install --dry-run --permission-profile safe
-node bin/csw.mjs install --dry-run --permission-profile balanced
-node bin/csw.mjs install --dry-run --permission-profile full
-node bin/csw.mjs install --dry-run --permission-profile none
+node bin/csw.mjs install --dry-run
 printf '{"cwd":"%s"}\n' "$PWD" | node bin/csw-statusline.mjs
 
 tmp=$(mktemp -d)
-CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs init --objective "release probe" --criteria "C001 | channel: cli | test: probe | scenario: runtime initializes"
+probe=$(mktemp "$PWD/.csw-release-probe.XXXXXX")
+printf '%s\n' \
+  'C001 | channel: cli | test: node exits zero | scenario: command receipt passes' \
+  'C002 | channel: file | test: artifact receipt | scenario: nonempty real-surface artifact passes' \
+  > "$tmp/criteria.txt"
+printf 'release artifact\n' > "$probe"
+CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs init --objective "release probe" --criteria-file "$tmp/criteria.txt"
 CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs status
-CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs evidence --id C001 --evidence "probe evidence"
+CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs verify --id C001 -- node -e 'process.exit(0)'
+CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs artifact --id C002 --path "$probe" --summary "release artifact exists"
 CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs complete
 CSW_HOME="$tmp/.csw" node bin/csw-runtime.mjs clear
+rm -rf "$tmp" "$probe"
 ```
 
 Hook-shaped probes:
@@ -45,21 +50,14 @@ printf '{"cwd":"%s"}' "$PWD" | node hooks/continuation.mjs
 printf '{"cwd":"%s"}' "$PWD" | CSW_SAFE_MODE=1 node hooks/continuation.mjs
 ```
 
-MCP smoke (safe fake worker, no live worker cost):
+Native scheduling checks are host-surface checks, not package-owned scheduler
+smokes:
 
-```sh
-fake=$(mktemp)
-cat > "$fake" <<'EOF'
-#!/usr/bin/env node
-process.stdout.write('FAKE_WORKER_DONE')
-EOF
-chmod +x "$fake"
-CSW_DISPATCH_CMD="$fake" node mcp/dispatch/server.mjs <<'EOF'
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}
-{"jsonrpc":"2.0","id":2,"method":"tools/list"}
-{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"code_search","arguments":{"queries":["smoke"]}}}
-EOF
-```
+- Confirm the model can delegate one focused task with the host `task` subagent tool.
+- Start user-visible parallel work with `/fleet`, inspect it with `/tasks`, and cancel
+  a disposable task from `/tasks`.
+- Before investigation, configure host deny/available-tool policy so mutation tools
+  are unavailable. Use an isolated git worktree for every writing worker.
 
 ## Publish command (manual only)
 
@@ -70,9 +68,24 @@ npm publish --access public
 ```
 
 CSW hardening notes:
-- `CSW_SAFE_MODE=1` disables continuation blocking, hook context emission/auditing,
-  and dispatch work if a stuck or risky runtime state needs to be escaped.
+- `CSW_SAFE_MODE=1` disables continuation blocking, steering-hook output/auditing,
+  and comment auditing if a stuck or risky runtime state needs to be escaped. The
+  session-start doctrine still emits because it does not read runtime state.
 - `csw-runtime clear` is the durable stuck-state escape hatch.
-- Read-only worker mode still depends on current GitHub Copilot CLI permission
-  semantics for `--allow-all-tools` plus `--deny-tool write`; revalidate against the
-  installed Copilot CLI before relying on it for untrusted tasks.
+- Continuation is root `agentStop` only. It does not govern subagent stops, and it
+  intentionally fails open for missing, malformed, empty, stale, completed, or
+  safe-mode state. Fail-open prevents host lockup; it does not prove completion.
+- Free-text evidence cannot pass a criterion. Use `csw-runtime verify` or
+  `csw-runtime artifact` to create a pass receipt.
+- Receipts provide structural validation and ordinary staleness detection, not
+  authentication against a malicious same-user editor. Git freshness covers tracked
+  and non-ignored untracked content; ignored inputs require separate `artifact`
+  receipts. Non-git verification has no workspace-freshness guarantee.
+- `csw-runtime verify` is a trusted-command runner, not a sandbox. Replay only argv
+  from approved plans, repository-owned source, or explicit user instructions;
+  never use worker output, fetched pages, issue text, or prompt-injected content.
+- Use only approved, non-daemonizing commands. Timeout/cancel process-tree cleanup
+  is best-effort and daemonized commands may outlive it; confirm cleanup and record
+  a cleanup receipt.
+- Revalidate host permission controls against the installed Copilot CLI; role prose
+  is never a substitute for denied/unavailable mutating tools.

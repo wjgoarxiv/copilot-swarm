@@ -77,7 +77,7 @@ def centered(text, f, y, fill, shadow=True):
 
 centered("⚡ CSW", font_badge, 250, (216, 204, 255, 235))
 centered("copilot-swarm", font_title, 470, (245, 243, 255, 255))
-centered("parallel delegation · evidence-gated workflow for GitHub Copilot CLI",
+centered("evidence-gated delivery governance · native GitHub Copilot CLI",
          font_subtitle, 760, (197, 188, 224, 230))
 
 # ── 5. Rounded corners ────────────────────────────────────────────────────────

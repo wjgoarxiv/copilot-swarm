@@ -7,11 +7,48 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide } from "../hooks/continuation.mjs";
 import * as rt from "../runtime/src/runtime.mjs";
+import { parseCriteria } from "../runtime/src/criteria.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const HOOK = join(repoRoot, "hooks/continuation.mjs");
 const tmp = () => mkdtempSync(join(tmpdir(), "csw-hook-"));
 const SECRET = "github_pat_" + "A".repeat(32);
+const NOW = "2026-07-12T00:00:00.000Z";
+const HASH = "a".repeat(64);
+const verifyReceipt = () => ({
+  type: "verify",
+  receiptVersion: 1,
+  argv0Sha256: HASH,
+  argumentCount: 0,
+  argvSha256: HASH,
+  criterionRevision: 0,
+  exitCode: 0,
+  signal: null,
+  timedOut: false,
+  errorCode: null,
+  durationMs: 1,
+  timeoutMs: 1000,
+  output: {
+    limitBytes: 1024,
+    limitExceeded: false,
+    truncated: false,
+    stdout: { bytes: 0, sha256: HASH },
+    stderr: { bytes: 0, sha256: HASH },
+  },
+  workspace: { version: 1, available: false, reason: "not-git" },
+  at: NOW,
+});
+const activeState = (overrides = {}) => ({
+  version: 2,
+  goalId: "goal-test",
+  objective: "g",
+  completed: false,
+  createdAt: NOW,
+  updatedAt: NOW,
+  criteria: [{ id: "C001", channel: "cli", test: "test", scenario: "scenario", status: "pending", revision: 0, receipt: null, notes: [] }],
+  reviewBlockers: [],
+  ...overrides,
+});
 
 // --- decide() pure logic ---
 test("decide: no goal -> no block", () => {
@@ -21,13 +58,23 @@ test("decide: completed goal -> no block", () => {
   assert.equal(decide({ completed: true, criteria: [] }).block, false);
 });
 test("decide: incomplete goal -> block with reason", () => {
-  const d = decide({ objective: "g", completed: false, criteria: [{ id: "C001", status: "pending", evidence: null }] });
+  const d = decide(activeState());
   assert.equal(d.block, true);
   assert.match(d.reason, /not complete/);
   assert.match(d.reason, /C001/);
+  assert.match(d.reason, /csw-runtime verify --id <C0NN> -- <argv\.\.\.>/);
+  assert.match(d.reason, /csw-runtime artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
 });
-test("decide: all criteria pass with evidence, no blockers -> no block", () => {
-  assert.equal(decide({ objective: "g", completed: false, criteria: [{ id: "C001", status: "pass", evidence: "x" }], reviewBlockers: [] }).block, false);
+test("runtime parser and continuation agree on canonical C0NN ids", () => {
+  assert.throws(
+    () => parseCriteria("C01 | channel: cli | test: test | scenario: scenario"),
+    /invalid criterion id/,
+  );
+  const [criterion] = parseCriteria("C001 | channel: cli | test: test | scenario: scenario");
+  assert.equal(decide(activeState({ criteria: [criterion] })).block, true);
+});
+test("decide: all criteria pass with machine receipts, no blockers -> no block", () => {
+  assert.equal(decide(activeState({ criteria: [{ id: "C001", channel: "cli", test: "test", scenario: "scenario", status: "pass", revision: 1, receipt: verifyReceipt(), notes: [] }] })).block, false);
 });
 
 test("decide: empty/invalid criteria never blocks (no livelock)", () => {
@@ -37,18 +84,16 @@ test("decide: empty/invalid criteria never blocks (no livelock)", () => {
 });
 
 test("decide: safe mode and stale states fail open", () => {
-  const state = { objective: "g", completed: false, updatedAt: "2000-01-01T00:00:00.000Z", criteria: [{ id: "C001", status: "pending", evidence: null }] };
+  const state = activeState({ createdAt: "2000-01-01T00:00:00.000Z", updatedAt: "2000-01-01T00:00:00.000Z" });
   assert.equal(decide(state, { safeMode: true }).block, false);
   assert.equal(decide(state, { now: Date.parse("2026-01-01T00:00:00.000Z") }).block, false);
 });
 
 test("decide: redacts secret-like objective and blocker reasons", () => {
   const d = decide({
+    ...activeState(),
     objective: `leak ${SECRET}`,
-    completed: false,
-    updatedAt: new Date().toISOString(),
-    criteria: [{ id: "C001", status: "pass", evidence: "ok" }],
-    reviewBlockers: [{ id: "b1", reason: `token=${SECRET}`, resolved: false }],
+    reviewBlockers: [{ id: "b1", reason: `token=${SECRET}`, resolved: false, addedAt: NOW }],
   });
   assert.equal(d.block, true);
   assert.doesNotMatch(d.reason, new RegExp(SECRET));
@@ -76,6 +121,8 @@ test("e2e: blocks while an active goal is incomplete", async () => {
     const decision = JSON.parse(out);
     assert.equal(decision.decision, "block");
     assert.match(decision.reason, /C001/);
+    assert.match(decision.reason, /csw-runtime verify --id <C0NN> -- <argv\.\.\.>/);
+    assert.match(decision.reason, /csw-runtime artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -85,7 +132,7 @@ test("e2e: does not block once the goal is complete", async () => {
   const cwd = tmp();
   try {
     rt.initGoal({ objective: "demo", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
-    rt.captureEvidence({ id: "C001", evidence: "done" }, cwd);
+    rt.verifyCriterion({ id: "C001", argv: [process.execPath, "-e", "process.exit(0)"] }, cwd);
     rt.complete(cwd);
     const { code, out } = await runHook({ cwd });
     assert.equal(code, 0);
@@ -127,6 +174,7 @@ test("e2e: malformed state and safe mode fail open", async () => {
     writeFileSync(join(cwd, ".csw/state.json"), "{not-json");
     assert.equal((await runHook({ cwd })).out, "");
 
+    rmSync(join(cwd, ".csw"), { recursive: true, force: true });
     rt.initGoal({ objective: "demo", criteriaText: "C001 | channel: cli | test: t | scenario: s" }, cwd);
     const child = spawn(process.execPath, [HOOK], { stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, CSW_SAFE_MODE: "1" } });
     let out = "";
@@ -141,11 +189,33 @@ test("e2e: malformed state and safe mode fail open", async () => {
   }
 });
 
-// --- hooks.json registration ---
-test("hooks.json registers agentStop + subagentStop pointing at continuation.mjs", () => {
-  const h = JSON.parse(readFileSync(join(repoRoot, "hooks/hooks.json"), "utf8"));
-  for (const ev of ["agentStop", "subagentStop"]) {
-    assert.ok(Array.isArray(h.hooks[ev]) && h.hooks[ev].length === 1, `${ev} must be registered`);
-    assert.match(h.hooks[ev][0].bash, /continuation\.mjs/);
+test("e2e: every parseable malformed state exits zero without blocking", async () => {
+  const cases = [
+    ["missing timestamp", activeState({ updatedAt: undefined })],
+    ["invalid timestamp", activeState({ createdAt: "not-a-date" })],
+    ["null criteria", activeState({ criteria: null })],
+    ["malformed criterion", activeState({ criteria: [null] })],
+    ["malformed blockers", activeState({ reviewBlockers: {} })],
+    ["malformed receipt", activeState({ criteria: [{ id: "C001", channel: "cli", test: "test", scenario: "scenario", status: "pass", receipt: { type: "artifact", path: null }, notes: [] }] })],
+  ];
+  for (const [label, state] of cases) {
+    const cwd = tmp();
+    try {
+      mkdirSync(join(cwd, ".csw"), { recursive: true });
+      writeFileSync(join(cwd, ".csw/state.json"), JSON.stringify(state));
+      const result = await runHook({ cwd });
+      assert.equal(result.code, 0, label);
+      assert.equal(result.out, "", label);
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   }
+});
+
+// --- hooks.json registration ---
+test("hooks.json gates only root agentStop with continuation.mjs", () => {
+  const h = JSON.parse(readFileSync(join(repoRoot, "hooks/hooks.json"), "utf8"));
+  assert.ok(Array.isArray(h.hooks.agentStop) && h.hooks.agentStop.length === 1, "agentStop must be registered");
+  assert.match(h.hooks.agentStop[0].bash, /continuation\.mjs/);
+  assert.equal(h.hooks.subagentStop, undefined, "subagents must be allowed to stop independently");
 });
