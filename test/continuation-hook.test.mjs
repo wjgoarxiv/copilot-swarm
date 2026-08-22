@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { decide } from "../hooks/continuation.mjs";
+import { classifySteering } from "../runtime/src/steering.mjs";
 import * as rt from "../runtime/src/runtime.mjs";
 import { parseCriteria } from "../runtime/src/criteria.mjs";
 
@@ -49,6 +50,7 @@ const activeState = (overrides = {}) => ({
   reviewBlockers: [],
   ...overrides,
 });
+const decideFresh = (state, opts = {}) => decide(state, { now: Date.parse(NOW), ...opts });
 
 // --- decide() pure logic ---
 test("decide: no goal -> no block", () => {
@@ -58,12 +60,13 @@ test("decide: completed goal -> no block", () => {
   assert.equal(decide({ completed: true, criteria: [] }).block, false);
 });
 test("decide: incomplete goal -> block with reason", () => {
-  const d = decide(activeState());
+  const d = decideFresh(activeState());
   assert.equal(d.block, true);
   assert.match(d.reason, /not complete/);
   assert.match(d.reason, /C001/);
-  assert.match(d.reason, /csw-runtime verify --id <C0NN> -- <argv\.\.\.>/);
-  assert.match(d.reason, /csw-runtime artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
+  assert.match(d.reason, /exact runtime invocation supplied at session start/);
+  assert.match(d.reason, /verify --id <C0NN> -- <argv\.\.\.>/);
+  assert.match(d.reason, /artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
 });
 test("runtime parser and continuation agree on canonical C0NN ids", () => {
   assert.throws(
@@ -71,10 +74,10 @@ test("runtime parser and continuation agree on canonical C0NN ids", () => {
     /invalid criterion id/,
   );
   const [criterion] = parseCriteria("C001 | channel: cli | test: test | scenario: scenario");
-  assert.equal(decide(activeState({ criteria: [criterion] })).block, true);
+  assert.equal(decideFresh(activeState({ criteria: [criterion] })).block, true);
 });
 test("decide: all criteria pass with machine receipts, no blockers -> no block", () => {
-  assert.equal(decide(activeState({ criteria: [{ id: "C001", channel: "cli", test: "test", scenario: "scenario", status: "pass", revision: 1, receipt: verifyReceipt(), notes: [] }] })).block, false);
+  assert.equal(decideFresh(activeState({ criteria: [{ id: "C001", channel: "cli", test: "test", scenario: "scenario", status: "pass", revision: 1, receipt: verifyReceipt(), notes: [] }] })).block, false);
 });
 
 test("decide: empty/invalid criteria never blocks (no livelock)", () => {
@@ -90,7 +93,7 @@ test("decide: safe mode and stale states fail open", () => {
 });
 
 test("decide: redacts secret-like objective and blocker reasons", () => {
-  const d = decide({
+  const d = decideFresh({
     ...activeState(),
     objective: `leak ${SECRET}`,
     reviewBlockers: [{ id: "b1", reason: `token=${SECRET}`, resolved: false, addedAt: NOW }],
@@ -107,7 +110,12 @@ function runHook(payload) {
     let out = "";
     child.stdout.on("data", (d) => (out += d));
     child.on("close", (code) => resolve({ code, out: out.trim() }));
-    child.stdin.write(JSON.stringify(payload));
+    const sessionId = "root-session";
+    child.stdin.write(JSON.stringify({
+      sessionId,
+      transcriptPath: join(payload.cwd, ".copilot", sessionId, "transcript.jsonl"),
+      ...payload,
+    }));
     child.stdin.end();
   });
 }
@@ -121,8 +129,9 @@ test("e2e: blocks while an active goal is incomplete", async () => {
     const decision = JSON.parse(out);
     assert.equal(decision.decision, "block");
     assert.match(decision.reason, /C001/);
-    assert.match(decision.reason, /csw-runtime verify --id <C0NN> -- <argv\.\.\.>/);
-    assert.match(decision.reason, /csw-runtime artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
+    assert.match(decision.reason, /exact runtime invocation supplied at session start/);
+    assert.match(decision.reason, /verify --id <C0NN> -- <argv\.\.\.>/);
+    assert.match(decision.reason, /artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>/);
   } finally {
     rmSync(cwd, { recursive: true, force: true });
   }
@@ -218,4 +227,11 @@ test("hooks.json gates only root agentStop with continuation.mjs", () => {
   assert.ok(Array.isArray(h.hooks.agentStop) && h.hooks.agentStop.length === 1, "agentStop must be registered");
   assert.match(h.hooks.agentStop[0].bash, /continuation\.mjs/);
   assert.equal(h.hooks.subagentStop, undefined, "subagents must be allowed to stop independently");
+});
+
+test("decide: block reason directs delegation without reading as gate weakening", () => {
+  const d = decideFresh(activeState());
+  assert.match(d.reason, /delegate/i);
+  assert.match(d.reason, /`task`/);
+  assert.equal(classifySteering(d.reason).weakening, false);
 });

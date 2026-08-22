@@ -7,7 +7,7 @@ installed. CSW turns the agent into a **conductor** of a swarm of workers.
 
 When the user's message is **`csw`** alone, or begins with **`csw `** (e.g.
 `csw add an auth module`), or otherwise asks to "run the loop" / work with full
-rigor: **activate the `copilot-swarm:csw-loop` skill** and follow its evidence-bound
+rigor: **activate the `csw-loop` skill** and follow its evidence-bound
 discipline end to end. Treat bare `csw` as "run the full loop on the current task or
 context". Do not ask whether to start — start, then surface the goal + criteria.
 
@@ -26,6 +26,12 @@ A worker reporting "done" is a claim, not evidence. Before accepting it:
 - re-read the actual diff,
 - re-run the relevant tests,
 - re-run diagnostics.
+
+Once mutation is assigned to a writer, the conductor must not perform that
+worker-owned mutation in the same run. If the assigned writer fails or cannot
+mutate, reject the result, preserve and clean its partial state, add a runtime
+blocker, and stop. Any later retry requires a corrected bounded packet in a new
+run; it is never conductor takeover or an unapproved replacement writer.
 
 ## Read-only patterns
 

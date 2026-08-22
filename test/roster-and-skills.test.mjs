@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scanText } from "../scripts/scanner-core.mjs";
@@ -18,7 +18,29 @@ function frontmatter(text) {
   return fields;
 }
 
+function markdownFiles(dir) {
+  const files = [];
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry);
+    if (statSync(path).isDirectory()) files.push(...markdownFiles(path));
+    else if (entry.endsWith(".md")) files.push(path);
+  }
+  return files;
+}
+
 const EXPECTED_AGENTS = ["explorer", "researcher", "planner", "gap-analyst", "plan-reviewer", "verifier"];
+const EXPECTED_SUPPORT_SKILLS = [
+  "csw-debugging",
+  "csw-deslop",
+  "csw-frontend",
+  "csw-git",
+  "csw-init",
+  "csw-interview",
+  "csw-lsp",
+  "csw-programming",
+  "csw-refactor",
+  "csw-visual-qa",
+];
 
 test("agent roster: all expected workers exist as .agent.md", () => {
   const dir = join(repoRoot, "agents");
@@ -42,7 +64,7 @@ test("each agent has valid frontmatter (name matches filename, description prese
 test("every skill has valid frontmatter (name == dir), is token-clean, and references resolve", () => {
   const skillsDir = join(repoRoot, "skills");
   const dirs = readdirSync(skillsDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
-  for (const s of ["swarm", "csw-plan", "csw-work", "csw-review", "csw-loop"]) {
+  for (const s of ["swarm", "csw-plan", "csw-work", "csw-review", "csw-loop", ...EXPECTED_SUPPORT_SKILLS]) {
     assert.ok(dirs.includes(s), `expected skill: ${s}`);
   }
   for (const d of dirs) {
@@ -54,14 +76,23 @@ test("every skill has valid frontmatter (name == dir), is token-clean, and refer
     assert.equal(fm.name, d, `${d}: skill name must match directory`);
     assert.ok(fm.description && fm.description.length > 20, `${d}: description required`);
     assert.deepEqual(scanText(text), [], `${d}: SKILL.md must be token-clean`);
-    // referenced reference files (references/*.md) must exist and be token-clean
+    // Nested progressive-disclosure references must all remain token-clean. Recursive graph
+    // reachability and broken-link checks belong to the dedicated skill-depth audit.
     const refDir = join(skillsDir, d, "references");
     if (existsSync(refDir)) {
-      for (const rf of readdirSync(refDir)) {
-        assert.deepEqual(scanText(readFileSync(join(refDir, rf), "utf8")), [], `${d}/references/${rf}: token-clean`);
-        assert.match(text, new RegExp(`\\[[^\\]]+\\]\\(references/${rf.replaceAll(".", "\\.")}\\)`), `${d}/references/${rf}: must be reachable through a Markdown link from SKILL.md`);
+      for (const path of markdownFiles(refDir)) {
+        assert.deepEqual(scanText(readFileSync(path, "utf8")), [], `${path}: token-clean`);
       }
     }
+  }
+});
+
+test("support skills are Copilot-native and avoid foreign host/tool contracts", () => {
+  for (const name of EXPECTED_SUPPORT_SKILLS) {
+    assert.match(name, /^csw-/, `${name}: support skills must be collision-resistant`);
+    const text = readFileSync(join(repoRoot, "skills", name, "SKILL.md"), "utf8");
+    assert.match(text, /Copilot CLI/, `${name}: must bind to the host surface`);
+    assert.doesNotMatch(text, /TodoWrite|background_output|multi_agent_v\d|team_(?:create|task|delete)/, `${name}: foreign tool contract`);
   }
 });
 
@@ -81,17 +112,27 @@ test("native-first skills use host scheduling, machine receipts, and enforced is
   assert.match(swarm, /deny\/available-tool policy/);
   assert.match(swarm, /separate git worktree/);
   assert.match(swarm, /claim, not evidence/i);
+  assert.match(swarm, /assigned writer/i);
+  assert.match(swarm, /must not perform[\s\S]{0,80}worker-owned mutation/i);
+  assert.match(swarm, /runtime blocker/i);
+
+  const failureReference = readFileSync(join(repoRoot, "skills/swarm/references/scheduling-and-failure.md"), "utf8");
+  assert.match(failureReference, /assigned writer/i);
+  assert.match(failureReference, /conductor takeover/i);
+  assert.match(failureReference, /corrected[\s\S]{0,80}packet[\s\S]{0,80}new run/i);
+  assert.match(failureReference, /runtime blocker/i);
 
   for (const skill of ["csw-work", "csw-loop", "csw-review"]) {
     const text = readFileSync(join(repoRoot, "skills", skill, "SKILL.md"), "utf8");
-    assert.match(text, /csw-runtime(?:\.mjs)? verify --id/);
-    assert.match(text, /csw-runtime(?:\.mjs)? artifact --id/);
+    assert.match(text, /runtime invocation[\s\S]*verify --id/i);
+    assert.match(text, /runtime invocation[\s\S]*artifact --id/i);
+    assert.match(text, /(?:invocation injected[\s\S]{0,120}session[- ]start|session[- ]start[\s\S]{0,120}invocation)/i);
     assert.match(text, /Free-text evidence\s+cannot\s+pass/i);
   }
 
   const planReference = readFileSync(join(repoRoot, "skills/csw-plan/references/full-workflow.md"), "utf8");
-  assert.match(planReference, /csw-runtime\.mjs verify --id/);
-  assert.match(planReference, /csw-runtime\.mjs artifact --id/);
+  assert.match(planReference, /runtime invocation injected[\s\S]*verify --id/i);
+  assert.match(planReference, /runtime invocation injected[\s\S]*artifact --id/i);
 
   for (const text of [
     readFileSync(join(repoRoot, "skills/csw-work/SKILL.md"), "utf8"),

@@ -7,6 +7,7 @@
 // created) it never blocks, so unrelated sessions are unaffected.
 
 import { realpathSync } from "node:fs";
+import { basename, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { loadState } from "../runtime/src/store.mjs";
 import { evaluate } from "../runtime/src/oracle.mjs";
@@ -74,15 +75,26 @@ export function decide(state, opts = {}) {
       block: true,
       reason:
         `CSW goal "${objective}" is not complete. Unmet gates:\n - ${reasons.join("\n - ")}\n` +
-        `Keep working toward these criteria and capture a machine receipt with ` +
-        `\`csw-runtime verify --id <C0NN> -- <argv...>\` or ` +
-        `\`csw-runtime artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>\`. ` +
+        `Keep working toward these criteria. When a criterion still depends on work product that does ` +
+        `not exist yet, delegate that work with the host \`task\` subagent tool before verifying; as ` +
+        `conductor you integrate and verify, and never take over an assigned worker's mutation. ` +
+        `Use the exact runtime invocation supplied at session start ` +
+        `with \`verify --id <C0NN> -- <argv...>\` or ` +
+        `\`artifact --id <C0NN> --path <workspace-file> --summary <observed-outcome>\`. ` +
         `Do not stop until the completion oracle passes. If a blocker is genuinely unresolvable, escalate to the ` +
-        `user; to abandon the goal entirely run \`csw-runtime clear\`.`,
+        `user; abandon the goal only through that same runtime invocation with \`clear\`.`,
     };
   } catch {
     return { block: false };
   }
+}
+
+/** Accept only positively identified root agentStop payloads. */
+export function isRootStopPayload(payload) {
+  if (!object(payload)) return false;
+  const { sessionId, transcriptPath } = payload;
+  if (!nonempty(sessionId) || !nonempty(transcriptPath) || sessionId.startsWith("call_")) return false;
+  return basename(dirname(transcriptPath)) === sessionId;
 }
 
 async function main() {
@@ -92,8 +104,8 @@ async function main() {
   } catch {
     payload = {};
   }
+  if (safeMode() || !isRootStopPayload(payload)) process.exit(0);
   const cwd = payload.cwd || process.cwd();
-  if (safeMode()) process.exit(0);
   let state = null;
   try {
     state = loadState(cwd);

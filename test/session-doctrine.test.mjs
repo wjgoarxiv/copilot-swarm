@@ -20,7 +20,8 @@ test("doctrine: includes the steering + delegation doctrine from AGENTS.md", () 
 test("doctrine declares the `csw` keyword trigger for the loop", () => {
   const d = doctrine();
   assert.match(d, /Keyword: `csw`/);
-  assert.match(d, /csw-loop/);
+  assert.match(d, /activate the `csw-loop` skill/);
+  assert.doesNotMatch(d, /activate the `copilot-swarm:csw-loop` skill/);
 });
 
 test("doctrine delegates through native task/fleet surfaces with host-enforced isolation", () => {
@@ -31,6 +32,15 @@ test("doctrine delegates through native task/fleet surfaces with host-enforced i
   assert.match(d, /deny\/available-tool policy/);
   assert.match(d, /isolated git worktree/);
   assert.match(d, /claim, not evidence/i);
+});
+
+test("doctrine forbids root takeover after an assigned writer fails", () => {
+  const d = doctrine();
+  assert.match(d, /assigned writer/i);
+  assert.match(d, /conductor must not perform[\s\S]{0,80}worker-owned mutation/i);
+  assert.match(d, /corrected[\s\S]{0,120}packet[\s\S]{0,120}new\s+run/i);
+  assert.match(d, /runtime\s+blocker/i);
+  assert.match(d, /stop/i);
 });
 
 test("doctrine states receipt and trusted-command trust boundaries", () => {
@@ -76,6 +86,8 @@ test("e2e: sessionStart hook emits additionalContext with doctrine", async () =>
   const r = JSON.parse(out);
   assert.match(r.additionalContext, /Copilot-swarm/);
   assert.match(r.additionalContext, /completion bar/i);
+  assert.match(r.additionalContext, /activate the `csw-loop` skill/);
+  assert.doesNotMatch(r.additionalContext, /activate the `copilot-swarm:csw-loop` skill/);
 });
 
 test("hooks.json registers sessionStart -> session-doctrine.mjs", () => {

@@ -12,6 +12,13 @@ via `additionalContext` (which Copilot CLI honors on `postToolUse`). It nudges; 
 never blocks. Verified against the real `postToolUse` payload shape (`toolArgs` is a
 JSON string containing `{ path, file_text | content | new_str | ... }`).
 
+## failure recovery — PORTED
+
+A `postToolUseFailure` hook (`hooks/failure-guide.mjs`) adds static, non-secret
+recovery guidance after a failed tool call and points the model to the bundled
+`csw-debugging` skill. It deliberately does not echo the untrusted error body. The hook
+uses Copilot CLI's documented exit-code `2` warning path and stays inert in safe mode.
+
 ## LSP diagnostics — KEPT NATIVE (skip custom)
 
 Copilot CLI has first-class LSP support: the `/lsp` command and a plugin
@@ -28,12 +35,26 @@ CSW's own always-on doctrine is injected via the `sessionStart` hook
 sessionStart injection, project + CSW context is already delivered, so a separate
 dynamic rules engine would be redundant for this release.
 
-## git guidance — SKIPPED
+## git guidance — PORTED AS A SKILL
 
-The reference recommended a bespoke git helper that does not exist on Copilot CLI.
-Copilot already gates shell/git via its permission model
-(`--allow-tool`/`--deny-tool`, e.g. `shell(git:*)`), so a `preToolUse` nag would add
-noise without added safety. Skipped to keep the hook surface quiet and useful.
+The `csw-git` skill provides conservative status, history, commit, rebase, and
+recovery discipline. It does not bypass Copilot CLI's shell permission model and
+does not install a noisy `preToolUse` hook.
+
+## specialist guidance — PORTED AS SKILLS
+
+Debugging, requirements interviewing, frontend design, deep repository guidance,
+programming discipline, safe refactoring, AI-code cleanup, LSP setup, and visual QA
+are packaged as discoverable skills. Each uses Copilot CLI terminology and native
+task, permission, LSP, browser, and screenshot surfaces rather than assuming a
+foreign host tool contract.
+
+Every shipped skill now uses a layered package: its `SKILL.md` contains the activation
+contract and complete decision flow, while linked `references/` files hold reusable
+matrices, templates, edge procedures, language/runtime guidance, and verification
+packets. `npm run audit:skills` checks all 15 package identities, linked-reference
+reachability, source cleanliness, and quantitative depth without loading every
+reference into each session.
 
 ## Subagent scheduling — KEPT NATIVE
 

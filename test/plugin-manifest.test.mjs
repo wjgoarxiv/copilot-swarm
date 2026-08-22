@@ -35,6 +35,21 @@ test("plugin manifest is valid JSON with required identity fields", () => {
   assert.doesNotMatch(m.description, /^Parallel task delegation/i);
 });
 
+test("metadata distinguishes the native substrate from durable completion governance", () => {
+  const pkg = readJson("package.json");
+  const primary = readJson(primaryManifestPath);
+  const github = readJson(awesomeCopilotManifestPath);
+  for (const manifest of [pkg, primary, github]) {
+    assert.match(manifest.description, /durable/i);
+    assert.match(manifest.description, /evidence-gated/i);
+    assert.match(manifest.description, /completion/i);
+    assert.match(manifest.description, /native task, fleet.*execution substrate/i);
+    assert.ok(manifest.keywords.includes("durable-ledger"));
+    assert.ok(manifest.keywords.includes("evidence-gated-completion"));
+  }
+  assert.deepEqual(primary.keywords, github.keywords);
+});
+
 test("awesome-copilot manifest stays synchronized with the primary manifest", () => {
   assert.deepEqual(readJson(awesomeCopilotManifestPath), readJson(primaryManifestPath));
 });

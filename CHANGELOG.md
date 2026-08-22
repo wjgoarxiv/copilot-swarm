@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No unreleased changes.
+
+## [0.1.4] - 2026-08-23
+
+### Added
+- Added ten Copilot-native specialist skills covering debugging, interviewing,
+  programming, refactoring, AI-code cleanup, frontend design, visual QA, Git,
+  hierarchical repository guidance, and native LSP setup.
+- Added a `postToolUseFailure` recovery hook that provides static root-cause
+  guidance without reflecting untrusted error text.
+- Expanded all 15 workflow and specialist skills into layered operational packages
+  with linked decision tables, edge-case procedures, templates, verification packets,
+  and a reproducible `npm run audit:skills` depth audit.
+
+### Changed
+- Clarified that native `task`/`fleet` are the execution substrate while CSW's
+  durable evidence-gated completion layer owns the goal ledger and completion oracle.
+
 ## [0.1.3] - 2026-07-12
 
 ### Fixed

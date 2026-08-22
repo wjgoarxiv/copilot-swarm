@@ -13,10 +13,17 @@ import { readStdin } from "./lib/read-stdin.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const DOCTRINE_PATH = join(here, "..", "AGENTS.md");
+const RUNTIME_PATH = join(here, "..", "bin", "csw-runtime.mjs");
 // Absolute command for the goal-runtime CLI. The model cannot see ${PLUGIN_ROOT}
 // and the bin is not on PATH after `copilot plugin install`, so inject the exact
 // invocation here (fixes the "model called bare csw-runtime" gap).
-const RUNTIME_CMD = `node "${join(here, "..", "bin", "csw-runtime.mjs")}"`;
+const shellDoubleQuote = (value) => `"${String(value)
+  .replaceAll("\\", "\\\\")
+  .replaceAll('"', '\\"')
+  .replaceAll("$", "\\$")
+  .replaceAll("`", "\\`")}"`;
+export const runtimeCommand = (runtimePath = RUNTIME_PATH) => `node ${shellDoubleQuote(runtimePath)}`;
+const RUNTIME_CMD = runtimeCommand();
 const MAX = 9000; // stay within additionalContext size limits
 
 /** Build the doctrine context string. Exported for tests. */

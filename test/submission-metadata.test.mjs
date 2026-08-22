@@ -9,7 +9,7 @@ const read = (p) => readFileSync(join(repoRoot, p), "utf8");
 
 test("published version has a dated changelog entry", () => {
   const pkg = JSON.parse(read("package.json"));
-  assert.equal(pkg.version, "0.1.3");
+  assert.equal(pkg.version, "0.1.4");
   const changelog = read("CHANGELOG.md");
   assert.match(changelog, new RegExp(`^## \\[${pkg.version.replaceAll(".", "\\.")}\\] - \\d{4}-\\d{2}-\\d{2}$`, "m"));
   assert.doesNotMatch(changelog, new RegExp(`^## \\[${pkg.version.replaceAll(".", "\\.")}\\] - unreleased$`, "m"));
@@ -20,10 +20,11 @@ test("package allowlist includes the awesome-copilot manifest", () => {
   assert.ok(pkg.files.includes(".github/plugin"));
 });
 
-test("changelog records 0.1.3 intake compatibility without rewriting release history", () => {
+test("changelog records 0.1.4 intake compatibility without rewriting release history", () => {
   const changelog = read("CHANGELOG.md");
   assert.match(changelog, /^## \[Unreleased\]$/m);
-  assert.ok(changelog.indexOf("## [Unreleased]") < changelog.indexOf("## [0.1.3] - 2026-07-12"));
+  assert.ok(changelog.indexOf("## [Unreleased]") < changelog.indexOf("## [0.1.4] - 2026-08-23"));
+  assert.ok(changelog.indexOf("## [0.1.4] - 2026-08-23") < changelog.indexOf("## [0.1.3] - 2026-07-12"));
   assert.ok(changelog.indexOf("## [0.1.3] - 2026-07-12") < changelog.indexOf("## [0.1.2] - 2026-07-12"));
   assert.ok(changelog.indexOf("## [0.1.2] - 2026-07-12") < changelog.indexOf("## [0.1.1] - 2026-06-19"));
   assert.match(changelog, /native `task` subagents/);
@@ -59,4 +60,13 @@ test("public landing surfaces lead with evidence governance, not scheduler repla
     assert.doesNotMatch(text, /parallel task delegation|parallel delegation|병렬 작업 위임/i);
     assert.match(text, /evidence-gated|증거 기반/i);
   }
+});
+
+test("public landing surfaces identify task/fleet as substrate and CSW as completion layer", () => {
+  const en = read("README.md");
+  const ko = read("README-Ko-KR.md");
+  assert.match(en, /native `task` and `\/fleet` surfaces.*execution substrate/i);
+  assert.match(en, /durable evidence-gated completion layer/i);
+  assert.match(ko, /네이티브 `task`와 `\/fleet`은.*실행 기반/i);
+  assert.match(ko, /지속 가능한 증거 기반 완료 계층/i);
 });

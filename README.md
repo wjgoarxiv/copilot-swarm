@@ -21,17 +21,21 @@
 ---
 
 > [!NOTE]
-> CSW wraps Copilot's native parallel subtasks in a disciplined plan → execute →
-> review loop whose "done" is decided by an **evidence-gated oracle**, not by
-> assertion. It does not replace Copilot's scheduler and is built entirely
-> on Copilot CLI's native extension surfaces (plugin manifest, skills, custom
-> agents, hooks, and native task/fleet scheduling) with **zero runtime dependencies**.
+> Copilot's native `task` and `/fleet` surfaces are CSW's execution substrate. CSW is
+> the **durable evidence-gated completion layer**: it binds a goal to an append-only
+> ledger and closes it only when machine receipts satisfy every criterion. It does
+> not replace Copilot's scheduler and is built entirely on Copilot CLI's native
+> extension surfaces (plugin manifest, skills, custom agents, hooks, and native
+> task/fleet scheduling) with **zero runtime dependencies**.
 
 ## Features
 
 - **Native-first delegation** — the model delegates focused work through the host
   `task` subagent tool. Users can start visible parallel execution with `/fleet` and
   inspect or cancel running work with `/tasks`; CSW does not ship a scheduler.
+- **Durable completion layer** — goal state and the append-only `.csw/` ledger remain
+  the source of truth across interruptions; the completion oracle, not a worker's
+  success message, decides whether the task is finished.
 - **Worker roster** — six focused custom agents: `explorer`, `researcher`, `planner`,
   `gap-analyst`, `plan-reviewer`, `verifier`.
 - **Evidence-gated goal runtime** — machine success criteria
@@ -41,8 +45,16 @@
   `.csw/`. Free-text evidence cannot mark a criterion passed.
 - **Workflow skills** — `swarm`, `csw-plan` (explore-first planning with an approval
   gate), `csw-work` (disciplined execution), `csw-review` (multi-lane, all-or-nothing).
+- **Specialist skills** — debugging, deep requirements interviewing, programming,
+  refactoring, AI-code cleanup, frontend design, visual QA, Git operations, deep
+  `AGENTS.md` initialization, and native LSP setup.
+- **Layered skill depth** — all 15 skills keep a focused activation body and link to
+  on-demand decision tables, language/runtime playbooks, failure recovery, QA matrices,
+  templates, and review checklists. Run `npm run audit:skills` for the reproducible
+  package-by-package depth and reachability report.
 - **Hooks** — session doctrine injection, steering audit, an anti AI-slop comment
-  check, and a root `agentStop` continuation gate while current state is valid.
+  check, static recovery guidance after tool failures, and a root `agentStop`
+  continuation gate while current state is valid.
 - **HUD** — a live status line showing the active goal's criteria progress and blockers.
 - **Install UX** — a polished `csw` CLI (banner, themes, status/install/doctor).
 
@@ -64,9 +76,9 @@
 > Requires the [GitHub Copilot CLI](https://docs.github.com/copilot/how-tos/copilot-cli)
 > and Node.js >= 20.
 
-The native-first implementation is versioned as `0.1.3` for GitHub source
+The native-first implementation is versioned as `0.1.4` for GitHub source
 distribution. The npm registry's `0.1.1` is the earlier implementation and does
-not contain this migration. Use the tagged source command below once `v0.1.3` is
+not contain this migration. Use the tagged source command below once `v0.1.4` is
 available.
 
 CSW does not generate host permissions. Before delegating investigation, use the
@@ -77,9 +89,9 @@ worktrees, then inspect their diffs before integration.
 ### From source (before npm publish)
 
 ```sh
-git clone --branch v0.1.3 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
-npm pack                                    # build copilot-swarm-0.1.3.tgz
-npm install -g ./copilot-swarm-0.1.3.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
+git clone --branch v0.1.4 https://github.com/wjgoarxiv/copilot-swarm.git && cd copilot-swarm
+npm pack                                    # build copilot-swarm-0.1.4.tgz
+npm install -g ./copilot-swarm-0.1.4.tgz    # clean copy (avoid `npm i -g .` — it symlinks the dev tree)
 csw install --dry-run
 csw install
 ```
@@ -103,6 +115,9 @@ In a `copilot` session:
   and only finishes when the goal runtime's oracle passes.
 - **Review** — `/copilot-swarm:csw-review` runs compliance / quality / real-QA / scope
   lanes in parallel and gates all-or-nothing.
+- **Specialists** — invoke focused support directly, for example
+  `/copilot-swarm:csw-debugging`, `/copilot-swarm:csw-programming`,
+  `/copilot-swarm:csw-refactor`, or `/copilot-swarm:csw-visual-qa`.
 - **Workers** — route a task to a specific agent with `@copilot-swarm:explorer` (etc.).
 
 Enable the HUD status line:
@@ -121,7 +136,7 @@ csw hud      # prints the snippet to add to ~/.copilot/settings.json
 | Always-on doctrine | `sessionStart` hook injecting `additionalContext` |
 | Goal state / oracle | self-managed `.csw/` (JSON state + JSONL ledger) |
 | Continuation | root `agentStop` hook only; stale/malformed state fails open |
-| Steering / comments | `userPromptSubmitted` / `postToolUse` hooks |
+| Steering / comments / failure recovery | `userPromptSubmitted` / `postToolUse` / `postToolUseFailure` hooks |
 | HUD | Copilot `statusLine` |
 
 See [`docs/supporting-components.md`](docs/supporting-components.md) for the

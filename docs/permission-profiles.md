@@ -4,7 +4,7 @@ Copilot-swarm uses Copilot CLI's native agent, scheduling, and permission surfac
 It does not generate host permission settings or install a separate scheduler.
 
 `csw install` installs a clean, allowlisted package copy and does not overwrite
-user Copilot/OpenCode permission settings. Configure permissions through the host
+user Copilot CLI permission settings. Configure permissions through the host
 CLI when needed.
 
 The installer currently passes that validated local package path directly to
@@ -13,9 +13,9 @@ Copilot CLI 1.0.70 already marks direct local-path installation as deprecated bu
 still supports it. CSW will need to migrate the final registration step before the
 CLI removes that path, while retaining the same clean-package preparation.
 
-The native-first implementation is versioned as `0.1.3` for GitHub source
+The native-first implementation is versioned as `0.1.4` for GitHub source
 distribution. The registry's `0.1.1` is the earlier implementation; use the
-tagged source-built local flow below once `v0.1.3` is available.
+tagged source-built local flow below once `v0.1.4` is available.
 
 The same local flow is:
 

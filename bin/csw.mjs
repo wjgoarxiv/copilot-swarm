@@ -97,6 +97,7 @@ export function statusReport(d, color = true, themeName = "violet") {
   }
   out.push("");
   out.push(p.paint("  Skills:", p.primary) + " /copilot-swarm:swarm · csw-plan · csw-work · csw-review");
+  out.push(p.paint("  Support:", p.primary) + " csw-debugging · csw-programming · csw-refactor · csw-visual-qa · 6 more");
   out.push(p.paint("  Agents:", p.primary) + " explorer · researcher · planner · gap-analyst · plan-reviewer · verifier");
   return out.join("\n");
 }

@@ -83,6 +83,7 @@ test("statusReport: renders checks and skills/agents", () => {
   assert.match(r, /GitHub Copilot CLI/);
   assert.match(r, /not installed — run: csw install/);
   assert.match(r, /swarm · csw-plan · csw-work · csw-review/);
+  assert.match(r, /csw-debugging · csw-programming · csw-refactor · csw-visual-qa/);
 });
 
 test("main: help and doctor return 0", () => {

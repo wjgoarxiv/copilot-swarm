@@ -36,9 +36,21 @@ async function main() {
   const prompt = payload.prompt || payload.userPrompt || "";
   const cwd = payload.cwd || process.cwd();
   if (safeMode()) process.exit(0);
+  const verdict = classifySteering(prompt);
   const g = guidance(prompt);
   if (g) {
-    try { if (loadState(cwd)) appendLedger({ kind: "steering_flagged", text: String(prompt).slice(0, 200) }, cwd); } catch {}
+    // Record which verb/gate pair matched, not just truncated text: a 200-char
+    // slice hides the tripping span when the flagged prompt is long.
+    try {
+      if (loadState(cwd)) {
+        appendLedger({
+          kind: "steering_flagged",
+          verb: verdict.verb,
+          gate: verdict.gate,
+          text: String(prompt).slice(0, 200),
+        }, cwd);
+      }
+    } catch {}
     process.stdout.write(JSON.stringify({ additionalContext: g }) + "\n");
   }
   process.exit(0);
